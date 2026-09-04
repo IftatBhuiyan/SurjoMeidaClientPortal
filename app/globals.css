@@ -1,0 +1,98 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@layer base {
+  :root {
+    --bg-canvas: #faf7f2;
+    --bg-surface: #ffffff;
+    --bg-surface-subtle: #f5efe6;
+    --border-color: #e6dfd3;
+    --border-hover: #c88e3e;
+    --text-primary: #1c1917;
+    --text-secondary: #70665a;
+    --gold-primary: #c88e3e;
+    --gold-hover: #b77d2f;
+    --gold-subtle: #fdf8f0;
+  }
+
+  .dark {
+    --bg-canvas: #0c0b0a;
+    --bg-surface: #151311;
+    --bg-surface-subtle: #1e1b17;
+    --border-color: #2d261e;
+    --border-hover: #d49a3d;
+    --text-primary: #f7f3ec;
+    --text-secondary: #a39886;
+    --gold-primary: #d49a3d;
+    --gold-hover: #c88e3e;
+    --gold-subtle: #251d13;
+  }
+}
+
+/* Spatial Reveal Keyframes & View Transitions */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+  display: block;
+}
+
+::view-transition-old(root) {
+  z-index: 1;
+}
+
+::view-transition-new(root) {
+  z-index: 9999;
+}
+
+/* Custom radial spatial wave */
+@keyframes spatialWave {
+  0% {
+    transform: scale(0);
+    opacity: 0.85;
+  }
+  60% {
+    opacity: 0.45;
+  }
+  100% {
+    transform: scale(3.5);
+    opacity: 0;
+  }
+}
+
+.animate-spatial-wave {
+  animation: spatialWave 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Luxury Font Utilities */
+.font-editorial-serif {
+  font-family: 'Playfair Display', Georgia, serif;
+}
+
+.font-editorial-sans {
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.font-editorial-mono {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(200, 142, 62, 0.25);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(200, 142, 62, 0.5);
+}

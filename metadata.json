@@ -1,0 +1,6 @@
+{
+  "name": "Surjo Media Client Portal",
+  "description": "Private client photo gallery portal for Surjo Media with Google Photos lossless master ingest, password protection, and role-based access control.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
