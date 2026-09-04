@@ -86,10 +86,10 @@ export const PulseThemeToggle: React.FC<PulseThemeToggleProps> = ({
         type="button"
         onClick={handleClick}
         aria-label="Toggle Surjo Warm Linen / Noir Theme"
-        className="relative group px-3 py-1.5 flex items-center gap-2 border border-[#e6dfd3] dark:border-[#2d261e] bg-white dark:bg-[#151311] hover:border-[#c88e3e] dark:hover:border-[#d49a3d] transition-all overflow-hidden focus:outline-none shadow-sm cursor-pointer"
+        className="relative group px-2 sm:px-3 py-1.5 flex items-center gap-1.5 sm:gap-2 border border-[#e6dfd3] dark:border-[#2d261e] bg-white dark:bg-[#151311] hover:border-[#c88e3e] dark:hover:border-[#d49a3d] transition-all overflow-hidden focus:outline-none shadow-sm cursor-pointer shrink-0"
         title={`Theme: Currently ${isDarkMode ? 'Noir Studio' : 'Sunlit Alabaster'} (Click for spatial transition)`}
       >
-        <div className="relative z-10 flex items-center gap-2">
+        <div className="relative z-10 flex items-center gap-1.5 sm:gap-2">
           <div className="w-4 h-4 flex items-center justify-center shrink-0">
             {isDarkMode ? (
               <Moon className="w-3.5 h-3.5 text-[#d49a3d] transition-transform duration-300 group-hover:-rotate-12" />
@@ -98,7 +98,7 @@ export const PulseThemeToggle: React.FC<PulseThemeToggleProps> = ({
             )}
           </div>
 
-          <div className="flex items-center gap-1.5 pr-0.5">
+          <div className="hidden sm:flex items-center gap-1.5 pr-0.5">
             <span className="w-1.5 h-1.5 rounded-full bg-[#c88e3e] shadow-[0_0_6px_#c88e3e]" />
             <span className="text-[10px] uppercase font-mono tracking-widest text-[#1c1917] dark:text-[#f7f3ec] font-medium">
               {isDarkMode ? 'Noir' : 'Alabaster'}

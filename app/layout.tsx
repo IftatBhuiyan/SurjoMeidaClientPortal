@@ -1,6 +1,12 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Plus_Jakarta_Sans, Playfair_Display, JetBrains_Mono } from 'next/font/google';
 import './globals.css';
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 5,
+};
 
 const plusJakartaSans = Plus_Jakarta_Sans({
   subsets: ['latin'],
@@ -81,7 +87,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body
-        className="min-h-screen bg-[#FAF7F2] dark:bg-[#0C0B0A] text-[#1C1917] dark:text-[#F7F3EC] font-sans antialiased selection:bg-[#C88E3E] selection:text-white"
+        className="min-h-screen bg-[#FAF7F2] dark:bg-[#0C0B0A] text-[#1C1917] dark:text-[#F7F3EC] font-sans antialiased selection:bg-[#C88E3E] selection:text-white w-full max-w-full overflow-x-hidden"
         suppressHydrationWarning
       >
         {children}

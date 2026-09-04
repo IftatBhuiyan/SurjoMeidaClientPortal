@@ -380,10 +380,10 @@ export const PhotographerDashboard: React.FC<PhotographerDashboardProps> = ({
             <Search className="w-4 h-4 text-[#70665A] dark:text-[#A39886] absolute left-3.5 top-3.5" />
             <input
               type="text"
-              placeholder="FILTER ARCHIVES BY CLIENT, SHOOT TYPE, OR TITLE..."
+              placeholder="Search archives by client or title..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-white dark:bg-[#151311] border border-[#E6DFD3] dark:border-[#2D261E] pl-10 pr-4 py-2.5 text-xs tracking-wider text-[#1C1917] dark:text-[#F7F3EC] placeholder-[#70665A]/50 dark:placeholder-[#A39886]/50 focus:outline-none focus:border-[#C88E3E] font-mono uppercase shadow-sm"
+              className="w-full bg-white dark:bg-[#151311] border border-[#E6DFD3] dark:border-[#2D261E] pl-10 pr-4 py-2.5 text-xs tracking-wider text-[#1C1917] dark:text-[#F7F3EC] placeholder-[#70665A]/50 dark:placeholder-[#A39886]/50 focus:outline-none focus:border-[#C88E3E] font-mono placeholder:truncate shadow-sm"
             />
           </div>
 

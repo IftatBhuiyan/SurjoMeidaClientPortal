@@ -232,7 +232,7 @@ export default function HomeClient({
 
   return (
     <div
-      className={`min-h-screen flex flex-col transition-colors duration-300 ${
+      className={`min-h-screen flex flex-col transition-colors duration-300 w-full max-w-full overflow-x-hidden ${
         isDarkMode ? 'bg-[#0C0B0A] text-[#F7F3EC]' : 'bg-[#FAF7F2] text-[#1C1917]'
       }`}
     >

@@ -87,23 +87,23 @@ export const Navbar: React.FC<NavbarProps> = ({
   const roleInfo = ROLE_DEFINITIONS[currentRole] || ROLE_DEFINITIONS.admin;
 
   return (
-    <header className="sticky top-0 z-40 bg-[#FAF7F2]/95 dark:bg-[#0C0B0A]/95 backdrop-blur-md border-b border-[#E6DFD3] dark:border-[#2D261E] px-4 lg:px-8 py-3.5 transition-colors duration-300">
-      <div className="max-w-7xl mx-auto flex items-center justify-between gap-3 sm:gap-4">
+    <header className="sticky top-0 z-40 bg-[#FAF7F2]/95 dark:bg-[#0C0B0A]/95 backdrop-blur-md border-b border-[#E6DFD3] dark:border-[#2D261E] px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3.5 transition-colors duration-300 w-full max-w-full">
+      <div className="max-w-7xl mx-auto flex items-center justify-between gap-2 sm:gap-4 w-full">
         {/* Surjo Media Brand & Identity */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0 min-w-0">
           {/* Surjo Sun Emblem */}
-          <div className="w-8 h-8 rounded-full border border-[#C88E3E] bg-[#C88E3E]/10 dark:bg-[#C88E3E]/20 flex items-center justify-center shrink-0 shadow-sm relative group">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className="w-4 h-4 text-[#C88E3E]">
+          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full border border-[#C88E3E] bg-[#C88E3E]/10 dark:bg-[#C88E3E]/20 flex items-center justify-center shrink-0 shadow-sm relative group">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#C88E3E]">
               <circle cx="12" cy="12" r="4" strokeWidth="1.5" stroke="currentColor" fill="currentColor" fillOpacity="0.3" />
               <path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.93 4.93l1.77 1.77M17.3 17.3l1.77 1.77M4.93 19.07l1.77-1.77M17.3 6.7l1.77-1.77" strokeWidth="1.5" strokeLinecap="round" />
             </svg>
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="tracking-[0.25em] font-light text-sm uppercase text-[#1C1917] dark:text-[#F7F3EC] font-sans font-semibold">
-                SURJO MEDIA
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <span className="tracking-[0.18em] sm:tracking-[0.25em] font-semibold text-xs sm:text-sm uppercase text-[#1C1917] dark:text-[#F7F3EC] font-sans truncate">
+                SURJO<span className="hidden sm:inline"> MEDIA</span>
               </span>
-              <span className="text-[9px] uppercase font-mono tracking-[0.2em] px-1.5 py-0.5 bg-[#C88E3E]/15 text-[#C88E3E] dark:text-[#D49A3D] border border-[#C88E3E]/30 font-medium">
+              <span className="text-[8px] sm:text-[9px] uppercase font-mono tracking-[0.15em] sm:tracking-[0.2em] px-1 sm:px-1.5 py-0.5 bg-[#C88E3E]/15 text-[#C88E3E] dark:text-[#D49A3D] border border-[#C88E3E]/30 font-medium shrink-0">
                 VAULT
               </span>
             </div>
@@ -119,9 +119,9 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
         </div>
 
-        {/* Center Role Navigation Switcher (Hidden in Standalone Client Mode) */}
+        {/* Center Role Navigation Switcher (Desktop md+) */}
         {!isStandaloneClient ? (
-          <div className="flex items-center bg-[#F3EDE2] dark:bg-[#151311] p-1 border border-[#E6DFD3] dark:border-[#2D261E]">
+          <div className="hidden md:flex items-center bg-[#F3EDE2] dark:bg-[#151311] p-1 border border-[#E6DFD3] dark:border-[#2D261E] shrink-0">
             <button
               id="nav-photographer-tab"
               onClick={() => onViewChange('photographer')}
@@ -155,7 +155,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             </button>
           </div>
         ) : (
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-[#FAF7F0] dark:bg-[#151311] border border-[#C88E3E]/40 text-xs font-mono text-[#C88E3E] dark:text-[#D49A3D] shadow-sm">
+          <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-[#FAF7F0] dark:bg-[#151311] border border-[#C88E3E]/40 text-xs font-mono text-[#C88E3E] dark:text-[#D49A3D] shadow-sm">
             <Lock className="w-3.5 h-3.5" />
             <span className="uppercase tracking-widest font-semibold text-[10px]">
               Private Client Vault
@@ -163,18 +163,18 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
         )}
 
-        {/* Right Section: Pulse Spatial Toggle, Google Photos Quick Sync & Account */}
-        <div className="flex items-center gap-2 sm:gap-3">
+        {/* Right Section: Lock, Theme Toggle, Google Photos Quick Sync & Account */}
+        <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
           {/* Global Lock Studio Desk (Photographer View only when authenticated) */}
           {!isStandaloneClient && activeView === 'photographer' && isStudioOwnerAuthenticated && onLockStudioDesk && (
             <button
               id="btn-quick-lock-desk"
               onClick={onLockStudioDesk}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 text-[10px] font-mono uppercase tracking-wider text-[#70665A] dark:text-[#A39886] hover:text-red-600 dark:hover:text-red-400 border border-[#E6DFD3] dark:border-[#2D261E] bg-white dark:bg-[#151311] transition-colors shadow-sm"
+              className="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 text-[10px] font-mono uppercase tracking-wider text-[#70665A] dark:text-[#A39886] hover:text-red-600 dark:hover:text-red-400 border border-[#E6DFD3] dark:border-[#2D261E] bg-white dark:bg-[#151311] transition-colors shadow-sm cursor-pointer"
               title="Lock Studio Desk immediately"
             >
-              <Lock className="w-3 h-3" />
-              <span>Lock Desk</span>
+              <Lock className="w-3 h-3 text-red-500/80 shrink-0" />
+              <span className="hidden sm:inline">Lock Desk</span>
             </button>
           )}
 
@@ -188,7 +188,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <button
                   id="btn-google-cloud-hub"
                   onClick={() => setDropdownOpen(!dropdownOpen)}
-                  className="flex items-center gap-2 bg-white dark:bg-[#151311] border border-[#E6DFD3] dark:border-[#2D261E] hover:border-[#C88E3E] px-2.5 sm:px-3 py-1.5 transition-all shadow-sm cursor-pointer group"
+                  className="flex items-center gap-1.5 bg-white dark:bg-[#151311] border border-[#E6DFD3] dark:border-[#2D261E] hover:border-[#C88E3E] px-2 sm:px-3 py-1.5 transition-all shadow-sm cursor-pointer group"
                   title="Google Cloud Workspace Hub (Drive & Photos Active)"
                 >
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_6px_#10B981]"></span>
@@ -196,13 +196,13 @@ export const Navbar: React.FC<NavbarProps> = ({
                     <img
                       src={currentUser.photoURL}
                       alt={currentUser.displayName || 'Google User'}
-                      className="w-5 h-5 rounded-full border border-[#C88E3E]/50"
+                      className="w-4 h-4 sm:w-5 sm:h-5 rounded-full border border-[#C88E3E]/50"
                       referrerPolicy="no-referrer"
                     />
                   ) : (
                     <Cloud className="w-3.5 h-3.5 text-[#C88E3E]" />
                   )}
-                  <span className="text-[11px] font-mono tracking-wider text-[#1C1917] dark:text-[#F7F3EC] hidden sm:inline uppercase">
+                  <span className="text-[11px] font-mono tracking-wider text-[#1C1917] dark:text-[#F7F3EC] hidden lg:inline uppercase">
                     Google Synced
                   </span>
                   <ChevronDown
@@ -214,7 +214,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
                 {/* Dropdown Menu */}
                 {dropdownOpen && (
-                  <div className="absolute right-0 mt-2 w-72 bg-[#FAF7F2] dark:bg-[#171412] border border-[#E6DFD3] dark:border-[#2D261E] shadow-2xl p-3 space-y-3 z-50 animate-fade-in text-left">
+                  <div className="absolute right-0 mt-2 w-72 max-w-[calc(100vw-1.5rem)] bg-[#FAF7F2] dark:bg-[#171412] border border-[#E6DFD3] dark:border-[#2D261E] shadow-2xl p-3 space-y-3 z-50 animate-fade-in text-left">
                     {/* User Identity & Active Status */}
                     <div className="pb-2.5 border-b border-[#E6DFD3] dark:border-[#2D261E] space-y-2">
                       <div className="flex items-center gap-2.5">
@@ -340,7 +340,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 id="btn-google-cloud-connect"
                 onClick={handleGoogleAuth}
                 disabled={isLoggingIn}
-                className="flex items-center gap-2 px-3 sm:px-4 py-1.5 bg-[#FAF7F0] dark:bg-[#151311] hover:bg-[#C88E3E] hover:text-white text-[#1C1917] dark:text-[#F7F3EC] border border-[#E6DFD3] dark:border-[#2D261E] hover:border-[#C88E3E] text-xs uppercase tracking-widest font-light transition-all shadow-sm group cursor-pointer"
+                className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-1.5 bg-[#FAF7F0] dark:bg-[#151311] hover:bg-[#C88E3E] hover:text-white text-[#1C1917] dark:text-[#F7F3EC] border border-[#E6DFD3] dark:border-[#2D261E] hover:border-[#C88E3E] text-xs uppercase tracking-widest font-light transition-all shadow-sm group cursor-pointer"
                 title="Connect Google Workspace (Drive & Photos in one click)"
               >
                 <div className="flex items-center -space-x-1">
@@ -350,14 +350,60 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <span className="hidden sm:inline">
                   {isLoggingIn ? 'Connecting...' : 'Connect Google'}
                 </span>
-                <span className="sm:hidden">
-                  {isLoggingIn ? 'Syncing...' : 'Google'}
+                <span className="sm:hidden text-[10px] font-mono">
+                  {isLoggingIn ? 'Syncing...' : 'Sync'}
                 </span>
               </button>
             )
           )}
         </div>
       </div>
+
+      {/* Mobile Sub-bar: Segmented Role Switcher (< md) */}
+      {!isStandaloneClient ? (
+        <div className="md:hidden mt-2 pt-2 border-t border-[#E6DFD3]/70 dark:border-[#2D261E]/70 w-full max-w-sm mx-auto">
+          <div className="grid grid-cols-2 bg-[#F3EDE2] dark:bg-[#151311] p-1 border border-[#E6DFD3] dark:border-[#2D261E]">
+            <button
+              id="nav-photographer-tab-mobile"
+              onClick={() => onViewChange('photographer')}
+              className={`flex items-center justify-center gap-1.5 py-1.5 text-[10px] font-mono uppercase tracking-wider transition-all cursor-pointer ${
+                activeView === 'photographer'
+                  ? 'bg-[#C88E3E] text-white font-medium shadow-sm'
+                  : 'text-[#6E6659] dark:text-[#A39886] hover:text-[#1C1917] dark:hover:text-[#F7F3EC]'
+              }`}
+            >
+              {isStudioOwnerAuthenticated ? (
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-300 shrink-0" />
+              ) : (
+                <Lock className="w-3.5 h-3.5 text-[#C88E3E] shrink-0" />
+              )}
+              <span>Studio Desk</span>
+              {isStudioOwnerAuthenticated && (
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0"></span>
+              )}
+            </button>
+            <button
+              id="nav-client-portal-tab-mobile"
+              onClick={() => onViewChange('client')}
+              className={`flex items-center justify-center gap-1.5 py-1.5 text-[10px] font-mono uppercase tracking-wider transition-all cursor-pointer ${
+                activeView === 'client'
+                  ? 'bg-[#C88E3E] text-white font-medium shadow-sm'
+                  : 'text-[#6E6659] dark:text-[#A39886] hover:text-[#1C1917] dark:hover:text-[#F7F3EC]'
+              }`}
+            >
+              <Lock className="w-3.5 h-3.5 shrink-0" />
+              <span>Client Vault</span>
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="md:hidden mt-2 pt-1.5 border-t border-[#E6DFD3]/70 dark:border-[#2D261E]/70 flex items-center justify-center">
+          <div className="flex items-center gap-1.5 px-2.5 py-1 bg-[#FAF7F0] dark:bg-[#151311] border border-[#C88E3E]/40 text-[10px] font-mono text-[#C88E3E] dark:text-[#D49A3D]">
+            <Lock className="w-3 h-3" />
+            <span className="uppercase tracking-widest font-semibold">Private Client Vault</span>
+          </div>
+        </div>
+      )}
     </header>
   );
 };
