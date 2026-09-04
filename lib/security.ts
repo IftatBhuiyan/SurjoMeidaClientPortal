@@ -81,11 +81,13 @@ export function clearGalleryLockout(galleryId: string): void {
 }
 
 /**
- * Validates a client input credential against a gallery's stored access keys or default credentials
+ * Validates client credentials against a gallery's stored access keys or default credentials.
+ * Supports dual-credential authentication requiring BOTH the 4-digit PIN and the security passcode.
  */
 export async function authenticateGalleryAccess(
   gallery: ClientGallery,
-  inputCode: string
+  pinInput: string,
+  passcodeInput?: string
 ): Promise<{ success: boolean; role: UserRole; key?: GalleryAccessKey; error?: string; isLocked?: boolean }> {
   // Check brute force lockout first
   const lockout = checkGalleryLockout(gallery.id);
@@ -98,16 +100,35 @@ export async function authenticateGalleryAccess(
     };
   }
 
-  const cleanInput = inputCode.trim().toUpperCase();
-  if (!cleanInput) {
-    return { success: false, role: 'guest_viewer', error: 'Please enter an access PIN or Security Passcode.' };
+  const cleanPin = (pinInput || '').trim().toUpperCase();
+  const cleanPasscode = (passcodeInput || '').trim().toUpperCase();
+
+  // If both credentials are provided or expected:
+  if (!cleanPin && !cleanPasscode) {
+    return { success: false, role: 'guest_viewer', error: 'Please enter both your 4-digit PIN and security passcode.' };
+  }
+  if (!cleanPin) {
+    return { success: false, role: 'guest_viewer', error: 'Please enter your 4-digit access PIN.' };
+  }
+  if (!cleanPasscode) {
+    return { success: false, role: 'guest_viewer', error: 'Please enter your security passcode.' };
   }
 
-  // 1. Check Primary Gallery Master Passcode & PIN
-  const cleanPin = (gallery.accessPin || '').trim().toUpperCase();
-  const cleanPasscode = (gallery.securityPasscode || '').trim().toUpperCase();
+  // 1. Check Primary Gallery Master Credentials (requires BOTH PIN and Passcode)
+  const masterPin = (gallery.accessPin || '').trim().toUpperCase();
+  const masterPasscode = (gallery.securityPasscode || '').trim().toUpperCase();
 
-  if (cleanInput === cleanPin || cleanInput === cleanPasscode) {
+  const pinMatches = cleanPin === masterPin;
+  let passcodeMatches = cleanPasscode === masterPasscode;
+
+  if (!passcodeMatches && gallery.passwordHash && gallery.encryptionSalt) {
+    const computedHash = await hashCredential(cleanPasscode, gallery.encryptionSalt);
+    if (computedHash === gallery.passwordHash) {
+      passcodeMatches = true;
+    }
+  }
+
+  if (pinMatches && passcodeMatches) {
     clearGalleryLockout(gallery.id);
     return {
       success: true,
@@ -115,19 +136,7 @@ export async function authenticateGalleryAccess(
     };
   }
 
-  // 2. Check hashed password if available
-  if (gallery.passwordHash && gallery.encryptionSalt) {
-    const computedHash = await hashCredential(cleanInput, gallery.encryptionSalt);
-    if (computedHash === gallery.passwordHash) {
-      clearGalleryLockout(gallery.id);
-      return {
-        success: true,
-        role: 'primary_client',
-      };
-    }
-  }
-
-  // 3. Check Role-Based Access Keys (e.g. VIP Family Guests or Retouchers)
+  // 2. Check Role-Based Access Keys (e.g. VIP Family Guests or Retouchers)
   if (gallery.accessKeys && gallery.accessKeys.length > 0) {
     for (const key of gallery.accessKeys) {
       if (!key.isActive) continue;
@@ -139,7 +148,7 @@ export async function authenticateGalleryAccess(
       const keyPin = (key.pin || '').trim().toUpperCase();
       const keyPasscode = (key.passcode || '').trim().toUpperCase();
 
-      if (cleanInput === keyPin || cleanInput === keyPasscode) {
+      if (cleanPin === keyPin && cleanPasscode === keyPasscode) {
         clearGalleryLockout(gallery.id);
         return {
           success: true,
@@ -164,7 +173,7 @@ export async function authenticateGalleryAccess(
   return {
     success: false,
     role: 'guest_viewer',
-    error: `Invalid security code (${failStatus.attemptsLeft} attempt(s) remaining before vault lock). Please check your invitation credentials.`,
+    error: `Invalid PIN and passcode combination (${failStatus.attemptsLeft} attempt(s) remaining before vault lock). Both credentials are required.`,
   };
 }
 

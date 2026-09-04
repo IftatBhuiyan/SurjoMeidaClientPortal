@@ -1,7 +1,7 @@
 'use client';
 
-import React from 'react';
-import { Camera, HardDrive, Lock, Sparkles, UserCheck, LogIn, LogOut, CheckCircle2, ShieldCheck, Image as ImageIcon } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Camera, HardDrive, Lock, Sparkles, UserCheck, LogIn, LogOut, CheckCircle2, ShieldCheck, Image as ImageIcon, ChevronDown, Cloud } from 'lucide-react';
 import { googleSignIn, logout } from '@/lib/firebase';
 import { User } from 'firebase/auth';
 import { UserRole, ROLE_DEFINITIONS } from '@/lib/types';
@@ -36,7 +36,24 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenGooglePhotos,
   isStandaloneClient = false,
 }) => {
-  const [isLoggingIn, setIsLoggingIn] = React.useState(false);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setDropdownOpen(false);
+      }
+    };
+    if (dropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [dropdownOpen]);
 
   const handleGoogleAuth = async () => {
     try {
@@ -138,59 +155,134 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* Pulse Spatial Theme Toggle */}
           <PulseThemeToggle isDarkMode={isDarkMode} onToggleTheme={onToggleTheme} />
 
-          {/* Direct Google Photos Quick Ingest Trigger (Studio only) */}
-          {!isStandaloneClient && onOpenGooglePhotos && activeView === 'photographer' && (
-            <button
-              onClick={onOpenGooglePhotos}
-              className="hidden md:flex items-center gap-1.5 px-2.5 py-1.5 bg-white dark:bg-[#151311] hover:bg-[#F3EDE2] dark:hover:bg-[#1E1B17] border border-[#E6DFD3] dark:border-[#2D261E] text-[#1C1917] dark:text-[#F7F3EC] text-xs font-mono uppercase tracking-wider transition-all"
-              title="Import photos directly from Google Photos"
-            >
-              <ImageIcon className="w-3.5 h-3.5 text-[#C88E3E]" />
-              <span className="text-[10px]">Google Photos</span>
-            </button>
-          )}
-
-          {!isStandaloneClient && <div className="hidden lg:block w-px h-6 bg-[#E6DFD3] dark:bg-[#2D261E]"></div>}
-
-          {!isStandaloneClient && (
+          {/* Unified Google Cloud Hub (Studio Desk Only) */}
+          {!isStandaloneClient && activeView === 'photographer' && (
             hasDriveAuth && currentUser ? (
-              <div className="flex items-center gap-2 bg-white dark:bg-[#151311] border border-[#E6DFD3] dark:border-[#2D261E] px-2.5 sm:px-3 py-1.5">
-                <div className="flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#C88E3E] shadow-[0_0_6px_#C88E3E]"></span>
-                  <HardDrive className="w-3.5 h-3.5 text-[#C88E3E]" />
-                  <span className="text-[11px] font-mono tracking-wider text-[#1C1917] dark:text-[#F7F3EC] hidden md:inline uppercase">
-                    Drive Synced
-                  </span>
-                </div>
-                {currentUser.photoURL && (
-                  <img
-                    src={currentUser.photoURL}
-                    alt={currentUser.displayName || 'User'}
-                    className="w-5 h-5 border border-[#C88E3E]/40 rounded-full"
-                    referrerPolicy="no-referrer"
-                  />
-                )}
+              <div className="relative" ref={dropdownRef}>
                 <button
-                  id="btn-drive-logout"
-                  onClick={handleLogout}
-                  title="Disconnect Google Drive"
-                  className="text-[#70665A] hover:text-[#1C1917] dark:text-[#A39886] dark:hover:text-[#F7F3EC] p-1 transition-colors"
+                  id="btn-google-cloud-hub"
+                  onClick={() => setDropdownOpen(!dropdownOpen)}
+                  className="flex items-center gap-2 bg-white dark:bg-[#151311] border border-[#E6DFD3] dark:border-[#2D261E] hover:border-[#C88E3E] px-2.5 sm:px-3 py-1.5 transition-all shadow-sm cursor-pointer group"
+                  title="Google Cloud Workspace Hub (Drive & Photos Active)"
                 >
-                  <LogOut className="w-3.5 h-3.5" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_6px_#10B981]"></span>
+                  {currentUser.photoURL ? (
+                    <img
+                      src={currentUser.photoURL}
+                      alt={currentUser.displayName || 'Google User'}
+                      className="w-5 h-5 rounded-full border border-[#C88E3E]/50"
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    <Cloud className="w-3.5 h-3.5 text-[#C88E3E]" />
+                  )}
+                  <span className="text-[11px] font-mono tracking-wider text-[#1C1917] dark:text-[#F7F3EC] hidden sm:inline uppercase">
+                    Google Synced
+                  </span>
+                  <ChevronDown
+                    className={`w-3 h-3 text-[#70665A] dark:text-[#A39886] transition-transform duration-200 ${
+                      dropdownOpen ? 'rotate-180 text-[#C88E3E]' : 'group-hover:text-[#1C1917] dark:group-hover:text-[#F7F3EC]'
+                    }`}
+                  />
                 </button>
+
+                {/* Dropdown Menu */}
+                {dropdownOpen && (
+                  <div className="absolute right-0 mt-2 w-72 bg-[#FAF7F2] dark:bg-[#171412] border border-[#E6DFD3] dark:border-[#2D261E] shadow-2xl p-3 space-y-3 z-50 animate-fade-in text-left">
+                    {/* User Identity & Active Status */}
+                    <div className="pb-2.5 border-b border-[#E6DFD3] dark:border-[#2D261E] space-y-2">
+                      <div className="flex items-center gap-2.5">
+                        {currentUser.photoURL ? (
+                          <img
+                            src={currentUser.photoURL}
+                            alt=""
+                            className="w-8 h-8 rounded-full border border-[#C88E3E]/60 shadow-sm"
+                            referrerPolicy="no-referrer"
+                          />
+                        ) : (
+                          <div className="w-8 h-8 rounded-full bg-[#EAE3D2] dark:bg-[#25201A] flex items-center justify-center text-[#C88E3E] font-mono text-xs font-semibold">
+                            G
+                          </div>
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-medium text-[#1C1917] dark:text-[#F7F3EC] truncate">
+                            {currentUser.displayName || 'Google Account'}
+                          </p>
+                          <p className="text-[10px] text-[#70665A] dark:text-[#A39886] truncate font-mono">
+                            {currentUser.email || 'Connected'}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 px-2 py-1 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/50 text-emerald-700 dark:text-emerald-300 text-[10px] font-mono uppercase tracking-wider">
+                        <CheckCircle2 className="w-3 h-3 shrink-0" />
+                        <span>Drive & Photos Synced</span>
+                      </div>
+                    </div>
+
+                    {/* Ingest Triggers */}
+                    <div className="space-y-1">
+                      <span className="text-[9px] uppercase tracking-widest text-[#70665A] dark:text-[#A39886] font-mono px-1">
+                        Cloud Ingest Triggers
+                      </span>
+
+                      {onOpenGooglePhotos && (
+                        <button
+                          id="btn-dropdown-google-photos"
+                          onClick={() => {
+                            setDropdownOpen(false);
+                            onOpenGooglePhotos();
+                          }}
+                          className="w-full flex items-center gap-2.5 px-2.5 py-2 hover:bg-[#EAE4D9] dark:hover:bg-[#231E19] text-[#1C1917] dark:text-[#F7F3EC] transition-colors group cursor-pointer text-left"
+                        >
+                          <ImageIcon className="w-4 h-4 text-[#C88E3E] shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <span className="block text-xs font-mono tracking-wide">
+                              Browse Google Photos
+                            </span>
+                            <span className="block text-[10px] text-[#70665A] dark:text-[#A39886] font-sans">
+                              Import curated albums & client rolls
+                            </span>
+                          </div>
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Disconnect Google Account */}
+                    <div className="pt-2 border-t border-[#E6DFD3] dark:border-[#2D261E]">
+                      <button
+                        id="btn-google-disconnect"
+                        onClick={() => {
+                          setDropdownOpen(false);
+                          handleLogout();
+                        }}
+                        className="w-full flex items-center justify-between px-2 py-1.5 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-xs font-mono uppercase tracking-wider transition-colors cursor-pointer"
+                      >
+                        <span className="text-[10px]">Disconnect Google Account</span>
+                        <LogOut className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
               <button
-                id="btn-google-drive-connect"
+                id="btn-google-cloud-connect"
                 onClick={handleGoogleAuth}
                 disabled={isLoggingIn}
-                className="flex items-center gap-2 px-3 sm:px-4 py-1.5 bg-[#FAF7F0] dark:bg-[#151311] hover:bg-[#C88E3E] hover:text-white text-[#1C1917] dark:text-[#F7F3EC] border border-[#E6DFD3] dark:border-[#2D261E] hover:border-[#C88E3E] text-xs uppercase tracking-widest font-light transition-all shadow-sm group"
+                className="flex items-center gap-2 px-3 sm:px-4 py-1.5 bg-[#FAF7F0] dark:bg-[#151311] hover:bg-[#C88E3E] hover:text-white text-[#1C1917] dark:text-[#F7F3EC] border border-[#E6DFD3] dark:border-[#2D261E] hover:border-[#C88E3E] text-xs uppercase tracking-widest font-light transition-all shadow-sm group cursor-pointer"
+                title="Connect Google Workspace (Drive & Photos in one click)"
               >
-                <HardDrive className="w-3.5 h-3.5 text-[#C88E3E] group-hover:text-white" />
+                <div className="flex items-center -space-x-1">
+                  <HardDrive className="w-3.5 h-3.5 text-[#C88E3E] group-hover:text-white transition-colors" />
+                  <ImageIcon className="w-3 h-3 text-[#C88E3E] group-hover:text-white transition-colors" />
+                </div>
                 <span className="hidden sm:inline">
-                  {isLoggingIn ? 'Syncing...' : 'Link Drive'}
+                  {isLoggingIn ? 'Connecting...' : 'Connect Google'}
                 </span>
-                <span className="sm:hidden">Link</span>
+                <span className="sm:hidden">
+                  {isLoggingIn ? 'Syncing...' : 'Google'}
+                </span>
               </button>
             )
           )}

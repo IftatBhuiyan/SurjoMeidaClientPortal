@@ -26,12 +26,12 @@ export const ShareGalleryModal: React.FC<ShareGalleryModalProps> = ({ gallery, i
 Your private online photo & film vault "${gallery.title}" is now ready for viewing in original lossless master resolution!
 
 Custom Private Vault Link: ${customVaultUrl}
-Security Passcode: ${gallery.securityPasscode}
-4-Digit PIN: ${gallery.accessPin}
+1. 4-Digit Access PIN: ${gallery.accessPin}
+2. Security Passcode: ${gallery.securityPasscode}
 
-Instructions for Accessing Your Vault:
+Instructions for Accessing Your Vault (Two-Layer Security):
 1. Click your custom vault link above (locked exclusively to your archive).
-2. Enter your Security Passcode (${gallery.securityPasscode}) or 4-digit PIN (${gallery.accessPin}) on the secure client gate.
+2. Enter both your 4-digit PIN (${gallery.accessPin}) and Security Passcode (${gallery.securityPasscode}) on the secure client gate.
 3. Browse, star (⭐) your favorite frames for final album production, leave retouching notes, and download original master files.
 
 Best regards,
@@ -239,7 +239,7 @@ Surjo Media Photography & Film Studio`;
         {/* Direct Test Portal Button */}
         <div className="pt-2 flex justify-between items-center">
           <span className="text-[10px] font-mono text-[#70665A] dark:text-[#A39886]">
-            Passcode required on entry
+            Both PIN & Passcode required on entry
           </span>
           <a
             href={customVaultUrl}

@@ -77,9 +77,10 @@ export default function Home() {
     const vault = params.get('vault') || '';
     const galleryId = params.get('galleryId') || '';
     const pin = params.get('pin') || '';
+    const passcode = params.get('passcode') || '';
     const isClient = !!(vault || galleryId || params.get('view') === 'client');
     const isStandalone = !!(vault || params.get('clientVault') || (params.get('view') === 'client' && galleryId));
-    return { vault, galleryId, pin, isClient, isStandalone };
+    return { vault, galleryId, pin, passcode, isClient, isStandalone };
   }, [searchString]);
 
   const [viewOverride, setViewOverride] = useState<'photographer' | 'client' | null>(null);
@@ -90,6 +91,7 @@ export default function Home() {
   const isStandaloneClient = urlParams.isStandalone;
   const selectedGalleryForClient = selectedGalleryOverride ?? (urlParams.vault || urlParams.galleryId || galleries[0]?.id || '');
   const initialClientPin = urlParams.pin;
+  const initialClientPasscode = urlParams.passcode;
 
   // Google Drive & Firebase Auth
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -219,10 +221,11 @@ export default function Home() {
           />
         ) : (
           <ClientPortalView
-            key={`${selectedGalleryForClient}_${initialClientPin}`}
+            key={`${selectedGalleryForClient}_${initialClientPin}_${initialClientPasscode}`}
             galleries={clientVisibleGalleries}
             initialGalleryId={selectedGalleryForClient}
             initialPin={initialClientPin}
+            initialPasscode={initialClientPasscode}
             isStandaloneClient={isStandaloneClient}
             onUpdateGallery={(updated) => {
               const updatedGalleries = galleries.map((g) => (g.id === updated.id ? updated : g));

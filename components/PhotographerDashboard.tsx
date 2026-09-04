@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ClientGallery, GeneratedConcept, PhotoItem } from '@/lib/types';
 import { createDriveFolder } from '@/lib/google-drive';
 import { createDefaultAccessKeys } from '@/lib/security';
@@ -24,6 +24,7 @@ import {
   Shield,
   Search,
   Upload,
+  X,
 } from 'lucide-react';
 
 interface PhotographerDashboardProps {
@@ -65,6 +66,17 @@ export const PhotographerDashboard: React.FC<PhotographerDashboardProps> = ({
   const [isCreatingGallery, setIsCreatingGallery] = useState(false);
 
   const activeGallery = galleries.find((g) => g.id === selectedGalleryId) || galleries[0];
+
+  // Dismiss modal on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && showNewGalleryModal) {
+        setShowNewGalleryModal(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showNewGalleryModal]);
 
   const handleCreateNewGallery = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -240,18 +252,6 @@ export const PhotographerDashboard: React.FC<PhotographerDashboardProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
-          <button
-            id="btn-drive-ingest-top"
-            onClick={() => {
-              setDrivePickerTargetGalleryId(selectedGalleryId || galleries[0]?.id || '');
-              setShowDrivePickerModal(true);
-            }}
-            className="px-4 py-2.5 bg-white dark:bg-[#151311] border border-[#C88E3E]/60 hover:border-[#C88E3E] text-[#1C1917] dark:text-[#F7F3EC] hover:text-[#C88E3E] dark:hover:text-[#D49A3D] text-xs uppercase tracking-widest font-mono transition-all flex items-center gap-2 shadow-sm"
-          >
-            <HardDrive className="w-3.5 h-3.5 text-[#C88E3E]" />
-            <span>Drive Asset Ingest</span>
-          </button>
-
           <button
             id="btn-create-new-gallery"
             onClick={() => setShowNewGalleryModal(true)}
@@ -462,9 +462,29 @@ export const PhotographerDashboard: React.FC<PhotographerDashboardProps> = ({
 
       {/* New Client Gallery Modal */}
       {showNewGalleryModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-fade-in">
-          <div className="bg-[#FAF7F2] dark:bg-[#151311] border border-[#E6DFD3] dark:border-[#2D261E] max-w-xl w-full p-6 sm:p-8 shadow-2xl space-y-6 relative max-h-[90vh] overflow-y-auto">
-            <div className="space-y-1 text-left">
+        <div
+          id="modal-backdrop-new-gallery"
+          onClick={() => setShowNewGalleryModal(false)}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-fade-in cursor-pointer"
+        >
+          <div
+            id="modal-content-new-gallery"
+            onClick={(e) => e.stopPropagation()}
+            className="bg-[#FAF7F2] dark:bg-[#151311] border border-[#E6DFD3] dark:border-[#2D261E] max-w-xl w-full p-6 sm:p-8 shadow-2xl space-y-6 relative max-h-[90vh] overflow-y-auto cursor-default text-left"
+          >
+            {/* Direct Close Button */}
+            <button
+              id="btn-close-new-gallery-modal"
+              type="button"
+              onClick={() => setShowNewGalleryModal(false)}
+              className="absolute top-5 right-5 p-2 text-[#70665A] dark:text-[#A39886] hover:text-[#1C1917] dark:hover:text-[#F7F3EC] hover:bg-[#EAE4D9] dark:hover:bg-[#25201A] transition-colors rounded-sm z-10"
+              title="Close dialog (Esc)"
+              aria-label="Close dialog"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="space-y-1 text-left pr-8">
               <div className="flex items-center gap-2 text-[#C88E3E]">
                 <FolderPlus className="w-4 h-4" />
                 <span className="text-[10px] uppercase font-mono tracking-[0.25em]">

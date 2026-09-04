@@ -287,7 +287,7 @@ export const GalleryEditor: React.FC<GalleryEditorProps> = ({
   };
 
   const handleCopyKeyDetails = (key: GalleryAccessKey) => {
-    const text = `Surjo Media — Private Gallery Access: ${gallery.title}\nRole: ${key.label}\nAccess PIN: ${key.pin}\nSecurity Passcode: ${key.passcode}\nPortal: ${window.location.origin}`;
+    const text = `Surjo Media — Private Gallery Access: ${gallery.title}\nRole: ${key.label}\nAccess PIN: ${key.pin}\nSecurity Passcode: ${key.passcode}\n(Both PIN and Passcode are required on entry)\nPortal: ${window.location.origin}`;
     navigator.clipboard.writeText(text);
     setCopiedKeyId(key.id);
     setTimeout(() => setCopiedKeyId(null), 2500);

@@ -13,11 +13,12 @@ import firebaseConfig from '../firebase-applet-config.json';
 const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 
-// Workspace & Drive scopes
+// Workspace & Cloud scopes (Drive + Google Photos Library)
 export const DRIVE_SCOPES = [
   'https://www.googleapis.com/auth/drive.file',
   'https://www.googleapis.com/auth/drive.readonly',
   'https://www.googleapis.com/auth/drive',
+  'https://www.googleapis.com/auth/photoslibrary.readonly',
 ];
 
 const provider = new GoogleAuthProvider();

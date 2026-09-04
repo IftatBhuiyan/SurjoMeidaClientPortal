@@ -48,6 +48,7 @@ interface ClientPortalViewProps {
   galleries: ClientGallery[];
   initialGalleryId?: string;
   initialPin?: string;
+  initialPasscode?: string;
   isStandaloneClient?: boolean;
   onUpdateGallery: (updated: ClientGallery) => void;
   onSwitchToPhotographer?: () => void;
@@ -57,6 +58,7 @@ export const ClientPortalView: React.FC<ClientPortalViewProps> = ({
   galleries,
   initialGalleryId,
   initialPin,
+  initialPasscode,
   isStandaloneClient = false,
   onUpdateGallery,
   onSwitchToPhotographer,
@@ -65,19 +67,32 @@ export const ClientPortalView: React.FC<ClientPortalViewProps> = ({
     initialGalleryId || galleries[0]?.id || ''
   );
   const [enteredPin, setEnteredPin] = useState(initialPin || '');
-  const [enteredPasscode, setEnteredPasscode] = useState('');
+  const [enteredPasscode, setEnteredPasscode] = useState(initialPasscode || '');
   const [userRole, setUserRole] = useState<UserRole>('primary_client');
 
   const targetGallery = galleries.find((g) => g.id === (initialGalleryId || galleries[0]?.id)) || galleries[0];
 
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
-    if (targetGallery && initialPin && targetGallery.accessPin === initialPin) {
+    // Both PIN and Passcode required for initial direct authentication if passed in URL
+    if (
+      targetGallery &&
+      initialPin &&
+      initialPasscode &&
+      targetGallery.accessPin === initialPin &&
+      targetGallery.securityPasscode.toUpperCase() === initialPasscode.toUpperCase()
+    ) {
       return true;
     }
     return false;
   });
   const [clientAuthorName, setClientAuthorName] = useState<string>(() => {
-    if (targetGallery && initialPin && targetGallery.accessPin === initialPin) {
+    if (
+      targetGallery &&
+      initialPin &&
+      initialPasscode &&
+      targetGallery.accessPin === initialPin &&
+      targetGallery.securityPasscode.toUpperCase() === initialPasscode.toUpperCase()
+    ) {
       return targetGallery.clientName;
     }
     return '';
@@ -128,8 +143,17 @@ export const ClientPortalView: React.FC<ClientPortalViewProps> = ({
 
     if (!activeGallery) return;
 
-    const inputCode = enteredPin || enteredPasscode;
-    const authResult = await authenticateGalleryAccess(activeGallery, inputCode);
+    if (!enteredPin.trim()) {
+      setAuthError('4-digit access PIN is required.');
+      return;
+    }
+
+    if (!enteredPasscode.trim()) {
+      setAuthError('Security passcode is required.');
+      return;
+    }
+
+    const authResult = await authenticateGalleryAccess(activeGallery, enteredPin, enteredPasscode);
 
     if (authResult.success) {
       setIsAuthenticated(true);
@@ -143,17 +167,17 @@ export const ClientPortalView: React.FC<ClientPortalViewProps> = ({
         'login_success',
         authResult.role,
         identifier,
-        `Client authenticated successfully with role ${authResult.role}`
+        `Client authenticated successfully with 2-Factor credentials (PIN + Passcode verified)`
       );
       onUpdateGallery(audited);
     } else {
-      setAuthError(authResult.error || 'Incorrect access PIN or security passcode.');
+      setAuthError(authResult.error || 'Incorrect access PIN or security passcode. Both credentials are required.');
       const audited = recordAuditLog(
         activeGallery,
         'login_failed',
         'guest_viewer',
         'Anonymous Web Client',
-        'Failed authentication attempt with invalid credential.'
+        'Failed authentication attempt: invalid PIN or passcode combination.'
       );
       onUpdateGallery(audited);
     }
@@ -425,8 +449,8 @@ export const ClientPortalView: React.FC<ClientPortalViewProps> = ({
             </h1>
             <p className="text-xs text-[#70665A] dark:text-[#A39886] leading-relaxed font-sans max-w-xs mx-auto">
               {isStandaloneClient
-                ? `Welcome, ${activeGallery?.clientName || 'Client'}. Please enter your security passcode or 4-digit PIN below to access your uncompressed master archive.`
-                : 'Your private gallery is synchronized with Google Photos & Drive master storage. All frames render at original uncompressed quality.'}
+                ? `Welcome, ${activeGallery?.clientName || 'Client'}. Please enter both your 4-digit PIN and security passcode to unlock your encrypted master vault.`
+                : 'Two-factor credential authentication required: enter both the 4-digit PIN and security passcode to unlock uncompressed master files.'}
             </p>
           </div>
 
@@ -434,10 +458,10 @@ export const ClientPortalView: React.FC<ClientPortalViewProps> = ({
           <div className="bg-[#FAF7F0] dark:bg-[#1E1B17] p-4 border border-[#E6DFD3] dark:border-[#2D261E] text-left">
             <div className="flex justify-between items-center mb-2">
               <span className="text-[9px] uppercase tracking-widest text-[#70665A] dark:text-[#A39886] font-mono">
-                {isStandaloneClient ? 'Client Vault Protection' : 'Encryption Tunnel'}
+                {isStandaloneClient ? 'Client Vault Protection' : '2-Factor Vault Protection'}
               </span>
               <span className="text-[9px] text-[#C88E3E] dark:text-[#D49A3D] font-mono font-semibold">
-                SHA-256 + AES-GCM
+                PIN + PASSCODE REQUIRED
               </span>
             </div>
             <div className="h-[3px] w-full bg-[#E6DFD3] dark:bg-[#2D261E] relative overflow-hidden">
@@ -445,7 +469,7 @@ export const ClientPortalView: React.FC<ClientPortalViewProps> = ({
             </div>
             <p className="text-[9px] mt-2 uppercase tracking-wider text-[#70665A] dark:text-[#A39886] font-mono flex items-center gap-1.5">
               <span className="w-1.5 h-1.5 rounded-full bg-[#C88E3E]"></span>
-              {isStandaloneClient ? `Encrypted Vault: ${activeGallery?.clientName || 'Private Archive'}` : 'Encrypted Master Link Verified'}
+              {isStandaloneClient ? `Dual-Layer Security: ${activeGallery?.clientName || 'Private Archive'}` : 'Dual-Layer Security Barrier Active'}
             </p>
           </div>
 
@@ -472,43 +496,58 @@ export const ClientPortalView: React.FC<ClientPortalViewProps> = ({
             </div>
           )}
 
-          <form onSubmit={handleClientLogin} className="space-y-4">
-            <div className="space-y-2">
-              <div className="relative">
-                <KeyRound className="w-4 h-4 text-[#70665A] dark:text-[#A39886] absolute left-3.5 top-3.5" />
+          <form onSubmit={handleClientLogin} className="space-y-4 text-left">
+            <div className="space-y-3">
+              {/* Step 1: 4-Digit Access PIN */}
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <label className="text-[10px] font-mono uppercase tracking-widest text-[#70665A] dark:text-[#A39886] flex items-center gap-1.5">
+                    <KeyRound className="w-3 h-3 text-[#C88E3E]" />
+                    <span>1. Access PIN (4 Digits)</span>
+                  </label>
+                  <span className="text-[9px] font-mono uppercase text-rose-600 dark:text-rose-400">Required</span>
+                </div>
                 <input
                   type="text"
-                  placeholder="4-DIGIT PIN (e.g. 4829)"
+                  maxLength={6}
+                  placeholder="e.g. 4829"
                   value={enteredPin}
                   onChange={(e) => setEnteredPin(e.target.value)}
-                  className="w-full bg-[#FAF7F0] dark:bg-[#0C0B0A] border border-[#E6DFD3] dark:border-[#2D261E] pl-10 pr-4 py-3 text-xs font-mono text-center tracking-[0.3em] text-[#1C1917] dark:text-[#F7F3EC] placeholder-[#70665A]/40 dark:placeholder-[#A39886]/40 focus:outline-none focus:border-[#C88E3E]"
+                  className="w-full bg-[#FAF7F0] dark:bg-[#0C0B0A] border border-[#E6DFD3] dark:border-[#2D261E] px-4 py-2.5 text-xs font-mono tracking-[0.25em] text-[#1C1917] dark:text-[#F7F3EC] placeholder-[#70665A]/40 dark:placeholder-[#A39886]/40 focus:outline-none focus:border-[#C88E3E]"
                 />
               </div>
 
-              <div className="text-[9px] uppercase tracking-widest text-[#70665A] dark:text-[#A39886] font-mono">
-                or enter security passcode
+              {/* Step 2: Security Passcode */}
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <label className="text-[10px] font-mono uppercase tracking-widest text-[#70665A] dark:text-[#A39886] flex items-center gap-1.5">
+                    <Shield className="w-3 h-3 text-[#C88E3E]" />
+                    <span>2. Security Passcode</span>
+                  </label>
+                  <span className="text-[9px] font-mono uppercase text-rose-600 dark:text-rose-400">Required</span>
+                </div>
+                <input
+                  type="password"
+                  placeholder="e.g. COMO2026"
+                  value={enteredPasscode}
+                  onChange={(e) => setEnteredPasscode(e.target.value)}
+                  className="w-full bg-[#FAF7F0] dark:bg-[#0C0B0A] border border-[#E6DFD3] dark:border-[#2D261E] px-4 py-2.5 text-xs text-[#1C1917] dark:text-[#F7F3EC] placeholder-[#70665A]/40 dark:placeholder-[#A39886]/40 focus:outline-none focus:border-[#C88E3E] font-mono tracking-wider"
+                />
               </div>
-
-              <input
-                type="password"
-                placeholder="Passcode (e.g. SURJO890)"
-                value={enteredPasscode}
-                onChange={(e) => setEnteredPasscode(e.target.value)}
-                className="w-full bg-[#FAF7F0] dark:bg-[#0C0B0A] border border-[#E6DFD3] dark:border-[#2D261E] px-4 py-2.5 text-xs text-[#1C1917] dark:text-[#F7F3EC] placeholder-[#70665A]/40 dark:placeholder-[#A39886]/40 focus:outline-none focus:border-[#C88E3E] font-mono text-center"
-              />
             </div>
 
             {authError && (
-              <p className="text-xs text-rose-600 dark:text-rose-400 font-mono p-2 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/50">
+              <p className="text-xs text-rose-600 dark:text-rose-400 font-mono p-2.5 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/50">
                 {authError}
               </p>
             )}
 
             <button
               type="submit"
-              className="w-full py-3.5 bg-[#C88E3E] hover:bg-[#B77D2F] text-white text-xs uppercase tracking-[0.25em] font-medium transition-all shadow-md font-sans"
+              className="w-full py-3.5 bg-[#C88E3E] hover:bg-[#B77D2F] text-white text-xs uppercase tracking-[0.25em] font-medium transition-all shadow-md font-sans flex items-center justify-center gap-2"
             >
-              Enter Client Vault
+              <ShieldCheck className="w-4 h-4" />
+              <span>Verify Both & Enter Vault</span>
             </button>
           </form>
 
