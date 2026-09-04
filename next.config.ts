@@ -10,6 +10,11 @@ const nextConfig: NextConfig = {
     // Keep type-checking enabled everywhere unless the constrained deploy opts out.
     ignoreBuildErrors: process.env.SKIP_NEXT_TYPECHECK === '1',
   },
+  experimental: {
+    // Shared hosting enforces a small process/thread budget during `next build`.
+    // One worker keeps page-data generation within that budget.
+    cpus: 1,
+  },
   // Allow access to remote image placeholders and Google Drive thumbnail domains.
   images: {
     remotePatterns: [
