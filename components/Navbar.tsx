@@ -12,8 +12,8 @@ interface NavbarProps {
   onViewChange: (view: 'photographer' | 'client') => void;
   currentUser: User | null;
   hasDriveAuth: boolean;
-  onDriveConnected: (user: User, token: string) => void;
-  onDriveDisconnected: () => void;
+  onDriveConnected?: (user: User, token: string) => void;
+  onDriveDisconnected?: () => void;
   selectedGalleryTitle?: string;
   isDarkMode: boolean;
   onToggleTheme: () => void;
@@ -60,7 +60,7 @@ export const Navbar: React.FC<NavbarProps> = ({
       setIsLoggingIn(true);
       const res = await googleSignIn();
       if (res) {
-        onDriveConnected(res.user, res.accessToken);
+        onDriveConnected?.(res.user, res.accessToken);
       }
     } catch (err) {
       console.error('Google sign-in error:', err);
@@ -72,7 +72,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   const handleLogout = async () => {
     try {
       await logout();
-      onDriveDisconnected();
+      onDriveDisconnected?.();
     } catch (err) {
       console.error('Logout error:', err);
     }

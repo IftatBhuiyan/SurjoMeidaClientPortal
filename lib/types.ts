@@ -169,6 +169,7 @@ export interface ClientGallery {
   clientName: string;
   clientEmail: string;
   coverPhotoUrl: string;
+  vanitySlug?: string; // Custom elegant short URL slug (e.g. 'vogue-editorial-2026')
   shootDate: string;
   location?: string;
   shootType: 'Wedding' | 'Editorial' | 'Portrait' | 'Fashion' | 'Commercial' | 'Event' | 'Landscape';

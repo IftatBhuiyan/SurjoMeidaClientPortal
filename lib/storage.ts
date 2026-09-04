@@ -4,6 +4,7 @@ import { createDefaultAccessKeys } from './security';
 const GALLERIES_STORAGE_KEY = 'aperture_photographer_galleries_v3';
 const CONCEPTS_STORAGE_KEY = 'aperture_studio_concepts_v3';
 const ACTIVE_ROLE_SESSION_KEY = 'aperture_active_role_session_v3';
+export const DEMO_PURGED_FLAG_KEY = 'aperture_demo_purged_v3';
 
 // High-end sample photography collections with RBAC keys & audit trail
 export const INITIAL_DEMO_GALLERIES: ClientGallery[] = [
@@ -12,6 +13,7 @@ export const INITIAL_DEMO_GALLERIES: ClientGallery[] = [
     title: 'Sophia & Julian — Villa Balbianello Wedding',
     clientName: 'Sophia & Julian Vance',
     clientEmail: 'sophia.vance@example.com',
+    vanitySlug: 'lake-como-wedding',
     coverPhotoUrl: 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=2000&q=95',
     shootDate: '2026-06-18',
     location: 'Villa Balbianello, Lake Como, Italy',
@@ -282,6 +284,7 @@ export const INITIAL_DEMO_GALLERIES: ClientGallery[] = [
     title: 'Aria Sterling — Haute Couture Autumn Editorial',
     clientName: 'Aria Sterling / Maison Velour',
     clientEmail: 'aria.sterling@velourparis.com',
+    vanitySlug: 'vogue-editorial-2026',
     coverPhotoUrl: 'https://images.unsplash.com/photo-1509631179647-0177331693ae?auto=format&fit=crop&w=2000&q=95',
     shootDate: '2026-07-04',
     location: 'Studio 7A, Manhattan, NY',
@@ -477,11 +480,14 @@ export function getGalleries(): ClientGallery[] {
   if (typeof window === 'undefined') return INITIAL_DEMO_GALLERIES;
   try {
     const raw = localStorage.getItem(GALLERIES_STORAGE_KEY);
+    const isPurged = localStorage.getItem(DEMO_PURGED_FLAG_KEY) === 'true';
+
     if (!raw) {
+      const initial = isPurged ? [] : INITIAL_DEMO_GALLERIES;
       if (!lastGalleriesRaw) {
-        localStorage.setItem(GALLERIES_STORAGE_KEY, JSON.stringify(INITIAL_DEMO_GALLERIES));
-        cachedGalleries = INITIAL_DEMO_GALLERIES;
-        lastGalleriesRaw = JSON.stringify(INITIAL_DEMO_GALLERIES);
+        localStorage.setItem(GALLERIES_STORAGE_KEY, JSON.stringify(initial));
+        cachedGalleries = initial;
+        lastGalleriesRaw = JSON.stringify(initial);
       }
       return cachedGalleries;
     }
@@ -502,6 +508,30 @@ export function getGalleries(): ClientGallery[] {
   } catch {
     return INITIAL_DEMO_GALLERIES;
   }
+}
+
+export function purgeAllDemoData(): void {
+  if (typeof window === 'undefined') return;
+  const current = getGalleries();
+  const demoIds = new Set(INITIAL_DEMO_GALLERIES.map((g) => g.id));
+  const userGalleries = current.filter((g) => !demoIds.has(g.id));
+  localStorage.setItem(DEMO_PURGED_FLAG_KEY, 'true');
+  saveGalleries(userGalleries);
+}
+
+export function restoreDemoData(): void {
+  if (typeof window === 'undefined') return;
+  localStorage.removeItem(DEMO_PURGED_FLAG_KEY);
+  const current = getGalleries();
+  const demoIds = new Set(INITIAL_DEMO_GALLERIES.map((g) => g.id));
+  const userGalleries = current.filter((g) => !demoIds.has(g.id));
+  saveGalleries([...INITIAL_DEMO_GALLERIES, ...userGalleries]);
+}
+
+export function hasDemoData(): boolean {
+  const current = getGalleries();
+  const demoIds = new Set(INITIAL_DEMO_GALLERIES.map((g) => g.id));
+  return current.some((g) => demoIds.has(g.id));
 }
 
 export function saveGalleries(galleries: ClientGallery[]): void {

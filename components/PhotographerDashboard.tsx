@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { ClientGallery, GeneratedConcept, PhotoItem } from '@/lib/types';
 import { createDriveFolder } from '@/lib/google-drive';
 import { createDefaultAccessKeys } from '@/lib/security';
+import { purgeAllDemoData, restoreDemoData, hasDemoData } from '@/lib/storage';
 import { GalleryEditor } from './GalleryEditor';
 import { StudioAiLab } from './StudioAiLab';
 import { ShareGalleryModal } from './ShareGalleryModal';
@@ -24,7 +25,8 @@ import {
   Shield,
   Search,
   Upload,
-  X,
+  Trash2,
+  RotateCcw,
 } from 'lucide-react';
 
 interface PhotographerDashboardProps {
@@ -66,17 +68,6 @@ export const PhotographerDashboard: React.FC<PhotographerDashboardProps> = ({
   const [isCreatingGallery, setIsCreatingGallery] = useState(false);
 
   const activeGallery = galleries.find((g) => g.id === selectedGalleryId) || galleries[0];
-
-  // Dismiss modal on Escape key
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && showNewGalleryModal) {
-        setShowNewGalleryModal(false);
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [showNewGalleryModal]);
 
   const handleCreateNewGallery = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -194,6 +185,18 @@ export const PhotographerDashboard: React.FC<PhotographerDashboardProps> = ({
     handleUpdateGallery(updatedTarget);
   };
 
+  const handlePurgeDemoData = () => {
+    if (window.confirm('Clear all sample/test galleries and start with a clean slate for your studio?')) {
+      purgeAllDemoData();
+      setActiveTab('galleries');
+    }
+  };
+
+  const handleRestoreDemoData = () => {
+    restoreDemoData();
+    setActiveTab('galleries');
+  };
+
   const filteredGalleries = galleries.filter(
     (g) =>
       g.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -252,6 +255,28 @@ export const PhotographerDashboard: React.FC<PhotographerDashboardProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
+          {hasDemoData() ? (
+            <button
+              id="btn-purge-demo-data"
+              onClick={handlePurgeDemoData}
+              className="px-3 py-2 text-[10px] uppercase font-mono tracking-wider text-[#70665A] dark:text-[#A39886] hover:text-red-600 dark:hover:text-red-400 border border-[#E6DFD3] dark:border-[#2D261E] bg-white dark:bg-[#151311] transition-colors flex items-center gap-1.5 shadow-sm"
+              title="Clear sample test galleries"
+            >
+              <Trash2 className="w-3 h-3" />
+              <span className="hidden sm:inline">Clear Sample Data</span>
+            </button>
+          ) : (
+            <button
+              id="btn-restore-demo-data"
+              onClick={handleRestoreDemoData}
+              className="px-3 py-2 text-[10px] uppercase font-mono tracking-wider text-[#70665A] dark:text-[#A39886] hover:text-[#C88E3E] dark:hover:text-[#D49A3D] border border-[#E6DFD3] dark:border-[#2D261E] bg-white dark:bg-[#151311] transition-colors flex items-center gap-1.5 shadow-sm"
+              title="Reload sample test galleries"
+            >
+              <RotateCcw className="w-3 h-3" />
+              <span className="hidden sm:inline">Load Sample Archive</span>
+            </button>
+          )}
+
           <button
             id="btn-create-new-gallery"
             onClick={() => setShowNewGalleryModal(true)}
@@ -328,124 +353,177 @@ export const PhotographerDashboard: React.FC<PhotographerDashboardProps> = ({
             />
           </div>
 
-          {/* Gallery Cards Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredGalleries.map((gallery) => {
-              const favs = gallery.photos.filter((p) => p.isFavorite).length;
-              return (
-                <div
-                  key={gallery.id}
-                  className="bg-white dark:bg-[#151311] border border-[#E6DFD3] dark:border-[#2D261E] hover:border-[#C88E3E] dark:hover:border-[#D49A3D] transition-all flex flex-col group shadow-sm overflow-hidden"
+          {/* Gallery Cards Grid or Empty Slate */}
+          {filteredGalleries.length === 0 ? (
+            <div className="bg-white dark:bg-[#151311] border border-[#E6DFD3] dark:border-[#2D261E] p-10 sm:p-14 text-center space-y-4 max-w-xl mx-auto shadow-sm my-4">
+              <div className="w-12 h-12 mx-auto rounded-full bg-[#FAF7F0] dark:bg-[#1E1B17] border border-[#E6DFD3] dark:border-[#2D261E] flex items-center justify-center text-[#C88E3E]">
+                <Layers className="w-6 h-6" />
+              </div>
+              <h3 className="text-xl font-serif text-[#1C1917] dark:text-[#F7F3EC]">
+                {searchQuery ? 'No Matching Archives Found' : 'Clean Studio Slate — No Client Archives'}
+              </h3>
+              <p className="text-xs text-[#70665A] dark:text-[#A39886] max-w-md mx-auto leading-relaxed font-sans">
+                {searchQuery
+                  ? `No photography collections matched "${searchQuery}". Try clearing your search query.`
+                  : 'All sample test data has been cleared. You have a fresh slate ready for your real client archives, or you can restore sample test collections anytime.'}
+              </p>
+              <div className="pt-3 flex flex-wrap items-center justify-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowNewGalleryModal(true)}
+                  className="px-5 py-2.5 bg-[#C88E3E] hover:bg-[#B77D2F] text-white text-xs uppercase tracking-widest font-mono font-medium transition-all flex items-center gap-2 shadow-sm"
                 >
-                  {/* Cover Image */}
-                  <div
-                    onClick={() => {
-                      setSelectedGalleryId(gallery.id);
-                      setActiveTab('workspace');
-                    }}
-                    className="aspect-[16/10] bg-[#111] relative overflow-hidden cursor-pointer flex items-center justify-center border-b border-[#E6DFD3] dark:border-[#2D261E]"
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Create First Client Archive</span>
+                </button>
+                {!hasDemoData() && (
+                  <button
+                    type="button"
+                    onClick={handleRestoreDemoData}
+                    className="px-4 py-2.5 bg-white dark:bg-[#151311] border border-[#E6DFD3] dark:border-[#2D261E] hover:border-[#C88E3E] text-[#70665A] dark:text-[#A39886] hover:text-[#1C1917] dark:hover:text-[#F7F3EC] text-xs uppercase tracking-widest font-mono transition-colors flex items-center gap-2"
                   >
-                    <img
-                      src={gallery.coverPhotoUrl || gallery.photos[0]?.thumbnailUrl || 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=800&q=80'}
-                      alt={gallery.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 opacity-95 group-hover:opacity-100"
-                      referrerPolicy="no-referrer"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    <span>Load Sample Data</span>
+                  </button>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredGalleries.map((gallery) => {
+                const favs = gallery.photos.filter((p) => p.isFavorite).length;
+                return (
+                  <div
+                    key={gallery.id}
+                    className="bg-white dark:bg-[#151311] border border-[#E6DFD3] dark:border-[#2D261E] hover:border-[#C88E3E] dark:hover:border-[#D49A3D] transition-all flex flex-col group shadow-sm overflow-hidden"
+                  >
+                    {/* Cover Image */}
+                    <div
+                      onClick={() => {
+                        setSelectedGalleryId(gallery.id);
+                        setActiveTab('workspace');
+                      }}
+                      className="aspect-[16/10] bg-[#111] relative overflow-hidden cursor-pointer flex items-center justify-center border-b border-[#E6DFD3] dark:border-[#2D261E]"
+                    >
+                      <img
+                        src={gallery.coverPhotoUrl || gallery.photos[0]?.thumbnailUrl || 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=800&q=80'}
+                        alt={gallery.title}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 opacity-95 group-hover:opacity-100"
+                        referrerPolicy="no-referrer"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
 
-                    <div className="absolute top-3 left-3 flex items-center gap-2">
-                      <span className="px-2 py-0.5 text-[9px] font-mono uppercase tracking-widest bg-[#C88E3E] text-white font-medium shadow-sm">
-                        {gallery.shootType}
-                      </span>
-                    </div>
-
-                    <div className="absolute top-3 right-3 flex items-center gap-1.5 bg-black/75 px-2 py-0.5 border border-white/20 text-[10px] font-mono text-white/90 tracking-wider">
-                      <Lock className="w-3 h-3 text-[#C88E3E]" />
-                      <span>PIN: {gallery.accessPin}</span>
-                    </div>
-
-                    <div className="absolute bottom-3 left-4 right-4 text-left">
-                      <span className="text-[9px] text-white/70 uppercase tracking-[0.25em] font-mono block">
-                        {gallery.clientName}
-                      </span>
-                      <h3 className="text-xl font-light leading-snug text-white font-serif line-clamp-1 mt-0.5">
-                        {gallery.title}
-                      </h3>
-                    </div>
-                  </div>
-
-                  {/* Card Content & Action Buttons */}
-                  <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
-                    <div className="flex items-center justify-between text-[10px] font-mono uppercase tracking-widest text-[#70665A] dark:text-[#A39886]">
-                      <span className="flex items-center gap-1.5">
-                        <Calendar className="w-3 h-3 text-[#C88E3E]" />
-                        {gallery.shootDate}
-                      </span>
-                      <span>{gallery.photos.length} frames</span>
-                      {favs > 0 && (
-                        <span className="text-[#C88E3E] dark:text-[#D49A3D] font-medium flex items-center gap-1">
-                          <Star className="w-3 h-3 fill-current" /> {favs} picks
+                      <div className="absolute top-3 left-3 flex items-center gap-2">
+                        <span className="px-2 py-0.5 text-[9px] font-mono uppercase tracking-widest bg-[#C88E3E] text-white font-medium shadow-sm">
+                          {gallery.shootType}
                         </span>
-                      )}
+                      </div>
+
+                      <div className="absolute top-3 right-3 flex items-center gap-1.5 bg-black/75 px-2 py-0.5 border border-white/20 text-[10px] font-mono text-white/90 tracking-wider">
+                        <Lock className="w-3 h-3 text-[#C88E3E]" />
+                        <span>PIN: {gallery.accessPin}</span>
+                      </div>
+
+                      <div className="absolute bottom-3 left-4 right-4 text-left">
+                        <span className="text-[9px] text-white/70 uppercase tracking-[0.25em] font-mono block">
+                          {gallery.clientName}
+                        </span>
+                        <h3 className="text-xl font-light leading-snug text-white font-serif line-clamp-1 mt-0.5">
+                          {gallery.title}
+                        </h3>
+                      </div>
                     </div>
 
-                    <div className="flex items-center gap-1.5 pt-3 border-t border-[#E6DFD3] dark:border-[#2D261E]">
-                      <button
-                        onClick={() => {
-                          setSelectedGalleryId(gallery.id);
-                          setActiveTab('workspace');
-                        }}
-                        className="flex-1 py-2 px-2.5 bg-[#FAF7F0] dark:bg-[#1E1B17] hover:bg-[#C88E3E] hover:text-white dark:hover:bg-[#C88E3E] text-[#1C1917] dark:text-[#F7F3EC] text-[10px] uppercase tracking-widest font-mono transition-colors flex items-center justify-center gap-1.5 border border-[#E6DFD3] dark:border-[#2D261E]"
-                      >
-                        <Camera className="w-3 h-3" />
-                        <span>Darkroom</span>
-                      </button>
+                    {/* Card Content & Action Buttons */}
+                    <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
+                      <div className="flex items-center justify-between text-[10px] font-mono uppercase tracking-widest text-[#70665A] dark:text-[#A39886]">
+                        <span className="flex items-center gap-1.5">
+                          <Calendar className="w-3 h-3 text-[#C88E3E]" />
+                          {gallery.shootDate}
+                        </span>
+                        <span>{gallery.photos.length} frames</span>
+                        {favs > 0 && (
+                          <span className="text-[#C88E3E] dark:text-[#D49A3D] font-medium flex items-center gap-1">
+                            <Star className="w-3 h-3 fill-current" /> {favs} picks
+                          </span>
+                        )}
+                      </div>
 
-                      <button
-                        onClick={() => {
-                          setDrivePickerTargetGalleryId(gallery.id);
-                          setShowDrivePickerModal(true);
-                        }}
-                        className="p-2 bg-[#FAF7F0] dark:bg-[#1E1B17] hover:bg-[#C88E3E] hover:text-white dark:hover:bg-[#C88E3E] text-[#C88E3E] dark:text-[#D49A3D] border border-[#E6DFD3] dark:border-[#2D261E] transition-colors"
-                        title="Ingest Media from Google Drive"
-                      >
-                        <HardDrive className="w-3.5 h-3.5" />
-                      </button>
+                      <div className="flex items-center gap-1.5 pt-3 border-t border-[#E6DFD3] dark:border-[#2D261E]">
+                        <button
+                          onClick={() => {
+                            setSelectedGalleryId(gallery.id);
+                            setActiveTab('workspace');
+                          }}
+                          className="flex-1 py-2 px-2.5 bg-[#FAF7F0] dark:bg-[#1E1B17] hover:bg-[#C88E3E] hover:text-white dark:hover:bg-[#C88E3E] text-[#1C1917] dark:text-[#F7F3EC] text-[10px] uppercase tracking-widest font-mono transition-colors flex items-center justify-center gap-1.5 border border-[#E6DFD3] dark:border-[#2D261E]"
+                        >
+                          <Camera className="w-3 h-3" />
+                          <span>Darkroom</span>
+                        </button>
 
-                      <button
-                        onClick={() => setShareModalGallery(gallery)}
-                        className="p-2 bg-[#FAF7F0] dark:bg-[#1E1B17] hover:bg-[#C88E3E] hover:text-white dark:hover:bg-[#C88E3E] text-[#70665A] dark:text-[#A39886] border border-[#E6DFD3] dark:border-[#2D261E] transition-colors"
-                        title="Share Client Link"
-                      >
-                        <Share2 className="w-3.5 h-3.5" />
-                      </button>
+                        <button
+                          onClick={() => {
+                            setDrivePickerTargetGalleryId(gallery.id);
+                            setShowDrivePickerModal(true);
+                          }}
+                          className="p-2 bg-[#FAF7F0] dark:bg-[#1E1B17] hover:bg-[#C88E3E] hover:text-white dark:hover:bg-[#C88E3E] text-[#C88E3E] dark:text-[#D49A3D] border border-[#E6DFD3] dark:border-[#2D261E] transition-colors"
+                          title="Ingest Media from Google Drive"
+                        >
+                          <HardDrive className="w-3.5 h-3.5" />
+                        </button>
 
-                      <button
-                        onClick={() => onSelectGalleryForClientView(gallery.id)}
-                        className="p-2 bg-[#C88E3E] text-white hover:bg-[#B77D2F] transition-all shadow-sm"
-                        title="Preview as Client"
-                      >
-                        <ArrowRight className="w-3.5 h-3.5" />
-                      </button>
+                        <button
+                          onClick={() => setShareModalGallery(gallery)}
+                          className="p-2 bg-[#FAF7F0] dark:bg-[#1E1B17] hover:bg-[#C88E3E] hover:text-white dark:hover:bg-[#C88E3E] text-[#70665A] dark:text-[#A39886] border border-[#E6DFD3] dark:border-[#2D261E] transition-colors"
+                          title="Share Client Link"
+                        >
+                          <Share2 className="w-3.5 h-3.5" />
+                        </button>
+
+                        <button
+                          onClick={() => onSelectGalleryForClientView(gallery.id)}
+                          className="p-2 bg-[#C88E3E] text-white hover:bg-[#B77D2F] transition-all shadow-sm"
+                          title="Preview as Client"
+                        >
+                          <ArrowRight className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 
       {/* Tab 2: Active Gallery Shoot Workspace */}
-      {activeTab === 'workspace' && activeGallery && (
-        <GalleryEditor
-          gallery={activeGallery}
-          onUpdateGallery={handleUpdateGallery}
-          onDeleteGallery={handleDeleteGallery}
-          hasDriveAuth={hasDriveAuth}
-          accessToken={accessToken}
-          onOpenShareModal={() => setShareModalGallery(activeGallery)}
-        />
+      {activeTab === 'workspace' && (
+        activeGallery ? (
+          <GalleryEditor
+            gallery={activeGallery}
+            onUpdateGallery={handleUpdateGallery}
+            onDeleteGallery={handleDeleteGallery}
+            hasDriveAuth={hasDriveAuth}
+            accessToken={accessToken}
+            onOpenShareModal={() => setShareModalGallery(activeGallery)}
+          />
+        ) : (
+          <div className="bg-white dark:bg-[#151311] border border-[#E6DFD3] dark:border-[#2D261E] p-12 text-center space-y-4 max-w-xl mx-auto shadow-sm my-6">
+            <h3 className="text-lg font-serif text-[#1C1917] dark:text-[#F7F3EC]">
+              No Client Archive Selected
+            </h3>
+            <p className="text-xs text-[#70665A] dark:text-[#A39886] font-sans">
+              Create a new client vault or select one from the Archives tab to enter the darkroom.
+            </p>
+            <button
+              onClick={() => setActiveTab('galleries')}
+              className="px-5 py-2.5 bg-[#C88E3E] text-white text-xs uppercase tracking-widest font-mono"
+            >
+              Browse Archives
+            </button>
+          </div>
+        )
       )}
 
       {/* Tab 3: Studio AI Lab & Aspect Ratios */}
@@ -462,29 +540,9 @@ export const PhotographerDashboard: React.FC<PhotographerDashboardProps> = ({
 
       {/* New Client Gallery Modal */}
       {showNewGalleryModal && (
-        <div
-          id="modal-backdrop-new-gallery"
-          onClick={() => setShowNewGalleryModal(false)}
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-fade-in cursor-pointer"
-        >
-          <div
-            id="modal-content-new-gallery"
-            onClick={(e) => e.stopPropagation()}
-            className="bg-[#FAF7F2] dark:bg-[#151311] border border-[#E6DFD3] dark:border-[#2D261E] max-w-xl w-full p-6 sm:p-8 shadow-2xl space-y-6 relative max-h-[90vh] overflow-y-auto cursor-default text-left"
-          >
-            {/* Direct Close Button */}
-            <button
-              id="btn-close-new-gallery-modal"
-              type="button"
-              onClick={() => setShowNewGalleryModal(false)}
-              className="absolute top-5 right-5 p-2 text-[#70665A] dark:text-[#A39886] hover:text-[#1C1917] dark:hover:text-[#F7F3EC] hover:bg-[#EAE4D9] dark:hover:bg-[#25201A] transition-colors rounded-sm z-10"
-              title="Close dialog (Esc)"
-              aria-label="Close dialog"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            <div className="space-y-1 text-left pr-8">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-fade-in">
+          <div className="bg-[#FAF7F2] dark:bg-[#151311] border border-[#E6DFD3] dark:border-[#2D261E] max-w-xl w-full p-6 sm:p-8 shadow-2xl space-y-6 relative max-h-[90vh] overflow-y-auto">
+            <div className="space-y-1 text-left">
               <div className="flex items-center gap-2 text-[#C88E3E]">
                 <FolderPlus className="w-4 h-4" />
                 <span className="text-[10px] uppercase font-mono tracking-[0.25em]">
@@ -693,6 +751,11 @@ export const PhotographerDashboard: React.FC<PhotographerDashboardProps> = ({
           gallery={shareModalGallery}
           isOpen={!!shareModalGallery}
           onClose={() => setShareModalGallery(null)}
+          onUpdateGallery={(updated) => {
+            const next = galleries.map((g) => (g.id === updated.id ? updated : g));
+            onUpdateGalleries(next);
+            setShareModalGallery(updated);
+          }}
         />
       )}
     </div>

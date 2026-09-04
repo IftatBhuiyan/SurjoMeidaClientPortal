@@ -1,9 +1,29 @@
-import type {Metadata} from 'next';
+import type { Metadata } from 'next';
+import { Plus_Jakarta_Sans, Playfair_Display, JetBrains_Mono } from 'next/font/google';
 import './globals.css';
+
+const plusJakartaSans = Plus_Jakarta_Sans({
+  subsets: ['latin'],
+  variable: '--font-sans',
+  display: 'swap',
+});
+
+const playfairDisplay = Playfair_Display({
+  subsets: ['latin'],
+  variable: '--font-serif',
+  display: 'swap',
+});
+
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ['latin'],
+  variable: '--font-mono',
+  display: 'swap',
+});
 
 export const metadata: Metadata = {
   title: 'Surjo Media Client Portal',
-  description: 'Private client photo gallery portal for Surjo Media with Google Photos lossless master ingest, password protection, and role-based access control.',
+  description:
+    'Private client photo gallery portal for Surjo Media with Google Photos lossless master ingest, password protection, and role-based access control.',
   robots: {
     index: false,
     follow: false,
@@ -16,19 +36,34 @@ export const metadata: Metadata = {
   },
   openGraph: {
     title: 'Surjo Media Client Portal',
-    description: 'Private client photo gallery portal for Surjo Media with Google Photos lossless master ingest, password protection, and role-based access control.',
+    description:
+      'Private client photo gallery portal for Surjo Media with Google Photos lossless master ingest, password protection, and role-based access control.',
     type: 'website',
+    images: [
+      {
+        url: 'https://images.unsplash.com/photo-1509631179647-0177331693ae?auto=format&fit=crop&w=1200&q=90',
+        width: 1200,
+        height: 630,
+        alt: 'Surjo Media Client Portal',
+      },
+    ],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'Surjo Media Client Portal',
-    description: 'Private client photo gallery portal for Surjo Media with Google Photos lossless master ingest, password protection, and role-based access control.',
+    description:
+      'Private client photo gallery portal for Surjo Media with Google Photos lossless master ingest, password protection, and role-based access control.',
+    images: ['https://images.unsplash.com/photo-1509631179647-0177331693ae?auto=format&fit=crop&w=1200&q=90'],
   },
 };
 
-export default function RootLayout({children}: {children: React.ReactNode}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html
+      lang="en"
+      className={`${plusJakartaSans.variable} ${playfairDisplay.variable} ${jetbrainsMono.variable}`}
+      suppressHydrationWarning
+    >
       <head>
         <script
           dangerouslySetInnerHTML={{
@@ -44,14 +79,11 @@ export default function RootLayout({children}: {children: React.ReactNode}) {
             `,
           }}
         />
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,300;0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@300;400;500;600&display=swap"
-          rel="stylesheet"
-        />
       </head>
-      <body className="min-h-screen bg-[#FAF7F2] dark:bg-[#0C0B0A] text-[#1C1917] dark:text-[#F7F3EC] font-sans antialiased selection:bg-[#C88E3E] selection:text-white" suppressHydrationWarning>
+      <body
+        className="min-h-screen bg-[#FAF7F2] dark:bg-[#0C0B0A] text-[#1C1917] dark:text-[#F7F3EC] font-sans antialiased selection:bg-[#C88E3E] selection:text-white"
+        suppressHydrationWarning
+      >
         {children}
       </body>
     </html>
