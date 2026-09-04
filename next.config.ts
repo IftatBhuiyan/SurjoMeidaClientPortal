@@ -6,7 +6,9 @@ const nextConfig: NextConfig = {
     ignoreDuringBuilds: true,
   },
   typescript: {
-    ignoreBuildErrors: false,
+    // cPanel's 1 GB container cannot compile and type-check in one process.
+    // Keep type-checking enabled everywhere unless the constrained deploy opts out.
+    ignoreBuildErrors: process.env.SKIP_NEXT_TYPECHECK === '1',
   },
   // Allow access to remote image placeholders and Google Drive thumbnail domains.
   images: {
