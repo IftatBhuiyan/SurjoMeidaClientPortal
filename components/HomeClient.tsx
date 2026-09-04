@@ -5,6 +5,8 @@ import { Navbar } from '@/components/Navbar';
 import { PhotographerDashboard } from '@/components/PhotographerDashboard';
 import { ClientPortalView } from '@/components/ClientPortalView';
 import { GooglePhotosPickerModal } from '@/components/GooglePhotosPickerModal';
+import { StudioMasterGate } from '@/components/StudioMasterGate';
+import { StudioSecurityModal } from '@/components/StudioSecurityModal';
 import { ClientGallery, PhotoItem } from '@/lib/types';
 import {
   getGalleries,
@@ -16,7 +18,16 @@ import {
   INITIAL_CONCEPTS,
 } from '@/lib/storage';
 import { initAuth, setCachedAccessToken } from '@/lib/firebase';
-import { recordAuditLog } from '@/lib/security';
+import {
+  recordAuditLog,
+  isStudioOwnerAuthenticated,
+  activateStudioOwnerSession,
+  terminateStudioOwnerSession,
+  subscribeStudioOwnerAuth,
+  getStudioOwnerAuthSnapshot,
+  getStudioOwnerAuthServerSnapshot,
+  isInitialStudioSetupNeeded,
+} from '@/lib/security';
 import { resolveGalleryFromMasterList } from '@/lib/vault-resolver';
 import { User } from 'firebase/auth';
 
@@ -113,6 +124,18 @@ export default function HomeClient({
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
 
+  // Studio Owner Security State via external store
+  const isStudioOwnerAuth = useSyncExternalStore(
+    subscribeStudioOwnerAuth,
+    getStudioOwnerAuthSnapshot,
+    getStudioOwnerAuthServerSnapshot
+  );
+  const [showStudioSecurityModal, setShowStudioSecurityModal] = useState(false);
+
+  const handleLockStudioDesk = () => {
+    terminateStudioOwnerSession();
+  };
+
   // Toggle Pulse Theme
   const handleToggleTheme = () => {
     const current = getThemeSnapshot();
@@ -148,6 +171,9 @@ export default function HomeClient({
       (user, token) => {
         setCurrentUser(user);
         setAccessToken(token);
+        if (user) {
+          activateStudioOwnerSession(true);
+        }
       },
       () => {
         // Not authenticated yet
@@ -163,6 +189,7 @@ export default function HomeClient({
     setCurrentUser(user);
     setAccessToken(token);
     setCachedAccessToken(token);
+    activateStudioOwnerSession(true);
   };
 
   const handleDriveDisconnected = () => {
@@ -222,19 +249,39 @@ export default function HomeClient({
         onToggleTheme={handleToggleTheme}
         onOpenGooglePhotos={() => setShowGlobalGooglePhotosModal(true)}
         isStandaloneClient={isStandaloneClient}
+        isStudioOwnerAuthenticated={isStudioOwnerAuth}
+        onLockStudioDesk={handleLockStudioDesk}
+        onOpenStudioSecurity={() => setShowStudioSecurityModal(true)}
       />
 
       {/* Main View Container */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 lg:px-8 py-8">
         {activeView === 'photographer' && !isStandaloneClient ? (
-          <PhotographerDashboard
-            galleries={galleries}
-            concepts={concepts}
-            onUpdateGalleries={handleUpdateGalleries}
-            onSelectGalleryForClientView={handleSelectGalleryForClientView}
-            hasDriveAuth={!!accessToken}
-            accessToken={accessToken}
-          />
+          !isStudioOwnerAuth ? (
+            <StudioMasterGate
+              currentUser={currentUser}
+              onAuthenticated={(user, isFirstLoginWithTemp) => {
+                if (user) {
+                  setCurrentUser(user);
+                }
+                if (isFirstLoginWithTemp || isInitialStudioSetupNeeded()) {
+                  setShowStudioSecurityModal(true);
+                }
+              }}
+              onSwitchToClient={() => setViewOverride('client')}
+            />
+          ) : (
+            <PhotographerDashboard
+              galleries={galleries}
+              concepts={concepts}
+              onUpdateGalleries={handleUpdateGalleries}
+              onSelectGalleryForClientView={handleSelectGalleryForClientView}
+              hasDriveAuth={!!accessToken}
+              accessToken={accessToken}
+              onOpenSecurityModal={() => setShowStudioSecurityModal(true)}
+              onLockStudioDesk={handleLockStudioDesk}
+            />
+          )
         ) : (
           <ClientPortalView
             key={`${selectedGalleryForClient}_${initialClientPin}_${initialClientPasscode}`}
@@ -255,6 +302,13 @@ export default function HomeClient({
           />
         )}
       </main>
+
+      {/* Studio Owner Security Key Modal */}
+      <StudioSecurityModal
+        isOpen={showStudioSecurityModal}
+        onClose={() => setShowStudioSecurityModal(false)}
+        onLockDeskNow={handleLockStudioDesk}
+      />
 
       {/* Global Google Photos Importer Modal */}
       {currentActiveGallery && (

@@ -1,10 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ClientGallery, GeneratedConcept, PhotoItem } from '@/lib/types';
 import { createDriveFolder } from '@/lib/google-drive';
-import { createDefaultAccessKeys } from '@/lib/security';
-import { purgeAllDemoData, restoreDemoData, hasDemoData } from '@/lib/storage';
+import { createDefaultAccessKeys, getStudioOwnerConfig, subscribeStudioOwnerConfig } from '@/lib/security';
 import { GalleryEditor } from './GalleryEditor';
 import { StudioAiLab } from './StudioAiLab';
 import { ShareGalleryModal } from './ShareGalleryModal';
@@ -25,8 +24,8 @@ import {
   Shield,
   Search,
   Upload,
-  Trash2,
-  RotateCcw,
+  KeyRound,
+  X,
 } from 'lucide-react';
 
 interface PhotographerDashboardProps {
@@ -36,6 +35,8 @@ interface PhotographerDashboardProps {
   onSelectGalleryForClientView: (galleryId: string) => void;
   hasDriveAuth: boolean;
   accessToken: string | null;
+  onOpenSecurityModal?: () => void;
+  onLockStudioDesk?: () => void;
 }
 
 export const PhotographerDashboard: React.FC<PhotographerDashboardProps> = ({
@@ -45,6 +46,8 @@ export const PhotographerDashboard: React.FC<PhotographerDashboardProps> = ({
   onSelectGalleryForClientView,
   hasDriveAuth,
   accessToken,
+  onOpenSecurityModal,
+  onLockStudioDesk,
 }) => {
   const [activeTab, setActiveTab] = useState<'galleries' | 'workspace' | 'ai-studio'>('galleries');
   const [selectedGalleryId, setSelectedGalleryId] = useState<string>(galleries[0]?.id || '');
@@ -53,6 +56,15 @@ export const PhotographerDashboard: React.FC<PhotographerDashboardProps> = ({
   const [drivePickerTargetGalleryId, setDrivePickerTargetGalleryId] = useState<string>(galleries[0]?.id || '');
   const [shareModalGallery, setShareModalGallery] = useState<ClientGallery | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [ownerConfig, setOwnerConfig] = useState(() => getStudioOwnerConfig());
+  const [dismissedTempBanner, setDismissedTempBanner] = useState(false);
+
+  useEffect(() => {
+    const unsub = subscribeStudioOwnerConfig(() => {
+      setOwnerConfig(getStudioOwnerConfig());
+    });
+    return unsub;
+  }, []);
 
   // New gallery form state
   const [newTitle, setNewTitle] = useState('');
@@ -185,18 +197,6 @@ export const PhotographerDashboard: React.FC<PhotographerDashboardProps> = ({
     handleUpdateGallery(updatedTarget);
   };
 
-  const handlePurgeDemoData = () => {
-    if (window.confirm('Clear all sample/test galleries and start with a clean slate for your studio?')) {
-      purgeAllDemoData();
-      setActiveTab('galleries');
-    }
-  };
-
-  const handleRestoreDemoData = () => {
-    restoreDemoData();
-    setActiveTab('galleries');
-  };
-
   const filteredGalleries = galleries.filter(
     (g) =>
       g.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -206,6 +206,43 @@ export const PhotographerDashboard: React.FC<PhotographerDashboardProps> = ({
 
   return (
     <div className="space-y-8">
+      {/* Temporary Passcode / Initial Setup Banner */}
+      {(ownerConfig.masterPasscode === '123456' || !ownerConfig.ownerEmail) && !dismissedTempBanner && (
+        <div className="bg-[#FAF7F0] dark:bg-[#151311] border border-[#C88E3E]/40 p-4 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-fade-in">
+          <div className="flex items-start sm:items-center gap-3">
+            <div className="w-9 h-9 rounded-full bg-[#C88E3E]/15 border border-[#C88E3E]/40 flex items-center justify-center shrink-0 text-[#C88E3E]">
+              <KeyRound className="w-4 h-4" />
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-[#1C1917] dark:text-[#F7F3EC] flex items-center gap-2">
+                <span>Initial Studio Setup Required</span>
+              </p>
+              <p className="text-[11px] text-[#70665A] dark:text-[#A39886] mt-0.5">
+                Set your personal master passcode and specify your authorized studio email for client archives and delivery notifications.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            {onOpenSecurityModal && (
+              <button
+                onClick={onOpenSecurityModal}
+                className="px-3.5 py-2 bg-[#C88E3E] hover:bg-[#B77D2F] text-white text-xs font-mono uppercase tracking-wider font-semibold transition-all shadow-sm flex items-center gap-1.5"
+              >
+                <KeyRound className="w-3.5 h-3.5" />
+                <span>Configure Passcode & Email</span>
+              </button>
+            )}
+            <button
+              onClick={() => setDismissedTempBanner(true)}
+              className="p-1.5 text-[#70665A] dark:text-[#A39886] hover:text-[#1C1917] dark:hover:text-[#F7F3EC]"
+              title="Dismiss notice"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Sub-Navigation Tabs */}
       <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[#E6DFD3] dark:border-[#2D261E] pb-4">
         <div className="flex items-center gap-2">
@@ -255,25 +292,22 @@ export const PhotographerDashboard: React.FC<PhotographerDashboardProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
-          {hasDemoData() ? (
+          {onOpenSecurityModal && (
             <button
-              id="btn-purge-demo-data"
-              onClick={handlePurgeDemoData}
-              className="px-3 py-2 text-[10px] uppercase font-mono tracking-wider text-[#70665A] dark:text-[#A39886] hover:text-red-600 dark:hover:text-red-400 border border-[#E6DFD3] dark:border-[#2D261E] bg-white dark:bg-[#151311] transition-colors flex items-center gap-1.5 shadow-sm"
-              title="Clear sample test galleries"
+              id="btn-studio-security-key"
+              onClick={onOpenSecurityModal}
+              className="px-3 py-2 text-[10px] uppercase font-mono tracking-wider text-[#1C1917] dark:text-[#F7F3EC] hover:text-[#C88E3E] dark:hover:text-[#D49A3D] border border-[#C88E3E]/60 hover:border-[#C88E3E] bg-white dark:bg-[#151311] transition-colors flex items-center gap-1.5 shadow-sm"
+              title="Configure Studio Master Passcode & Authorized Email"
             >
-              <Trash2 className="w-3 h-3" />
-              <span className="hidden sm:inline">Clear Sample Data</span>
-            </button>
-          ) : (
-            <button
-              id="btn-restore-demo-data"
-              onClick={handleRestoreDemoData}
-              className="px-3 py-2 text-[10px] uppercase font-mono tracking-wider text-[#70665A] dark:text-[#A39886] hover:text-[#C88E3E] dark:hover:text-[#D49A3D] border border-[#E6DFD3] dark:border-[#2D261E] bg-white dark:bg-[#151311] transition-colors flex items-center gap-1.5 shadow-sm"
-              title="Reload sample test galleries"
-            >
-              <RotateCcw className="w-3 h-3" />
-              <span className="hidden sm:inline">Load Sample Archive</span>
+              <KeyRound className="w-3.5 h-3.5 text-[#C88E3E]" />
+              <span className="font-semibold">
+                {ownerConfig.masterPasscode === '123456' || !ownerConfig.ownerEmail
+                  ? 'Setup Passcode & Email'
+                  : 'Change Passcode'}
+              </span>
+              {(ownerConfig.masterPasscode === '123456' || !ownerConfig.ownerEmail) && (
+                <span className="w-1.5 h-1.5 rounded-full bg-[#C88E3E] animate-ping ml-0.5" title="Initial setup required" />
+              )}
             </button>
           )}
 
@@ -360,12 +394,12 @@ export const PhotographerDashboard: React.FC<PhotographerDashboardProps> = ({
                 <Layers className="w-6 h-6" />
               </div>
               <h3 className="text-xl font-serif text-[#1C1917] dark:text-[#F7F3EC]">
-                {searchQuery ? 'No Matching Archives Found' : 'Clean Studio Slate — No Client Archives'}
+                {searchQuery ? 'No Matching Archives Found' : 'Clean Studio Slate — Ready for Client Archives'}
               </h3>
               <p className="text-xs text-[#70665A] dark:text-[#A39886] max-w-md mx-auto leading-relaxed font-sans">
                 {searchQuery
                   ? `No photography collections matched "${searchQuery}". Try clearing your search query.`
-                  : 'All sample test data has been cleared. You have a fresh slate ready for your real client archives, or you can restore sample test collections anytime.'}
+                  : 'Your studio darkroom is ready for production. Initialize your first client archive to synchronize master photographs from Google Drive or Google Photos.'}
               </p>
               <div className="pt-3 flex flex-wrap items-center justify-center gap-3">
                 <button
@@ -376,16 +410,6 @@ export const PhotographerDashboard: React.FC<PhotographerDashboardProps> = ({
                   <Plus className="w-3.5 h-3.5" />
                   <span>Create First Client Archive</span>
                 </button>
-                {!hasDemoData() && (
-                  <button
-                    type="button"
-                    onClick={handleRestoreDemoData}
-                    className="px-4 py-2.5 bg-white dark:bg-[#151311] border border-[#E6DFD3] dark:border-[#2D261E] hover:border-[#C88E3E] text-[#70665A] dark:text-[#A39886] hover:text-[#1C1917] dark:hover:text-[#F7F3EC] text-xs uppercase tracking-widest font-mono transition-colors flex items-center gap-2"
-                  >
-                    <RotateCcw className="w-3.5 h-3.5" />
-                    <span>Load Sample Data</span>
-                  </button>
-                )}
               </div>
             </div>
           ) : (
@@ -739,7 +763,7 @@ export const PhotographerDashboard: React.FC<PhotographerDashboardProps> = ({
         onImportDrivePhotos={handleImportDriveMediaToGallery}
         accessToken={accessToken}
         hasDriveAuth={hasDriveAuth}
-        targetGalleryTitle={galleries.find((g) => g.id === drivePickerTargetGalleryId)?.title || activeGallery.title}
+        targetGalleryTitle={galleries.find((g) => g.id === drivePickerTargetGalleryId)?.title || activeGallery?.title || 'Client Archive'}
         galleries={galleries}
         selectedGalleryId={drivePickerTargetGalleryId}
         onSelectTargetGallery={setDrivePickerTargetGalleryId}

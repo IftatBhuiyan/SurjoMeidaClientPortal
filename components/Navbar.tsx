@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Camera, HardDrive, Lock, Sparkles, UserCheck, LogIn, LogOut, CheckCircle2, ShieldCheck, Image as ImageIcon, ChevronDown, Cloud } from 'lucide-react';
+import { Camera, HardDrive, Lock, Sparkles, UserCheck, LogIn, LogOut, CheckCircle2, ShieldCheck, Image as ImageIcon, ChevronDown, Cloud, KeyRound } from 'lucide-react';
 import { googleSignIn, logout } from '@/lib/firebase';
 import { User } from 'firebase/auth';
 import { UserRole, ROLE_DEFINITIONS } from '@/lib/types';
@@ -20,6 +20,9 @@ interface NavbarProps {
   currentRole?: UserRole;
   onOpenGooglePhotos?: () => void;
   isStandaloneClient?: boolean;
+  isStudioOwnerAuthenticated?: boolean;
+  onLockStudioDesk?: () => void;
+  onOpenStudioSecurity?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -35,6 +38,9 @@ export const Navbar: React.FC<NavbarProps> = ({
   currentRole = 'admin',
   onOpenGooglePhotos,
   isStandaloneClient = false,
+  isStudioOwnerAuthenticated = false,
+  onLockStudioDesk,
+  onOpenStudioSecurity,
 }) => {
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -125,8 +131,15 @@ export const Navbar: React.FC<NavbarProps> = ({
                   : 'text-[#6E6659] dark:text-[#A39886] hover:text-[#1C1917] dark:hover:text-[#F7F3EC]'
               }`}
             >
-              <Camera className="w-3.5 h-3.5" />
+              {isStudioOwnerAuthenticated ? (
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+              ) : (
+                <Lock className="w-3.5 h-3.5 text-[#C88E3E]" />
+              )}
               <span>Studio Desk</span>
+              {isStudioOwnerAuthenticated && (
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+              )}
             </button>
             <button
               id="nav-client-portal-tab"
@@ -152,6 +165,19 @@ export const Navbar: React.FC<NavbarProps> = ({
 
         {/* Right Section: Pulse Spatial Toggle, Google Photos Quick Sync & Account */}
         <div className="flex items-center gap-2 sm:gap-3">
+          {/* Global Lock Studio Desk (Photographer View only when authenticated) */}
+          {!isStandaloneClient && activeView === 'photographer' && isStudioOwnerAuthenticated && onLockStudioDesk && (
+            <button
+              id="btn-quick-lock-desk"
+              onClick={onLockStudioDesk}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 text-[10px] font-mono uppercase tracking-wider text-[#70665A] dark:text-[#A39886] hover:text-red-600 dark:hover:text-red-400 border border-[#E6DFD3] dark:border-[#2D261E] bg-white dark:bg-[#151311] transition-colors shadow-sm"
+              title="Lock Studio Desk immediately"
+            >
+              <Lock className="w-3 h-3" />
+              <span>Lock Desk</span>
+            </button>
+          )}
+
           {/* Pulse Spatial Theme Toggle */}
           <PulseThemeToggle isDarkMode={isDarkMode} onToggleTheme={onToggleTheme} />
 
@@ -242,6 +268,50 @@ export const Navbar: React.FC<NavbarProps> = ({
                             </span>
                             <span className="block text-[10px] text-[#70665A] dark:text-[#A39886] font-sans">
                               Import curated albums & client rolls
+                            </span>
+                          </div>
+                        </button>
+                      )}
+
+                      {/* Studio Master Security Settings */}
+                      {onOpenStudioSecurity && (
+                        <button
+                          id="btn-dropdown-studio-security"
+                          onClick={() => {
+                            setDropdownOpen(false);
+                            onOpenStudioSecurity();
+                          }}
+                          className="w-full flex items-center gap-2.5 px-2.5 py-2 hover:bg-[#EAE4D9] dark:hover:bg-[#231E19] text-[#1C1917] dark:text-[#F7F3EC] transition-colors group cursor-pointer text-left"
+                        >
+                          <ShieldCheck className="w-4 h-4 text-emerald-500 shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <span className="block text-xs font-mono tracking-wide">
+                              Studio Owner Security
+                            </span>
+                            <span className="block text-[10px] text-[#70665A] dark:text-[#A39886] font-sans">
+                              Manage Master Passcode & PIN
+                            </span>
+                          </div>
+                        </button>
+                      )}
+
+                      {/* Lock Studio Desk */}
+                      {onLockStudioDesk && (
+                        <button
+                          id="btn-dropdown-lock-desk"
+                          onClick={() => {
+                            setDropdownOpen(false);
+                            onLockStudioDesk();
+                          }}
+                          className="w-full flex items-center gap-2.5 px-2.5 py-2 hover:bg-[#EAE4D9] dark:hover:bg-[#231E19] text-[#1C1917] dark:text-[#F7F3EC] transition-colors group cursor-pointer text-left"
+                        >
+                          <Lock className="w-4 h-4 text-[#C88E3E] shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <span className="block text-xs font-mono tracking-wide">
+                              Lock Studio Desk
+                            </span>
+                            <span className="block text-[10px] text-[#70665A] dark:text-[#A39886] font-sans">
+                              Return to Master Gate
                             </span>
                           </div>
                         </button>

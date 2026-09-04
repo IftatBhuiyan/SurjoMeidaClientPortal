@@ -246,3 +246,176 @@ export function createDefaultAccessKeys(gallery: ClientGallery): GalleryAccessKe
     },
   ];
 }
+
+/* ==========================================================================
+   STUDIO MASTER / OWNER SECURITY PROTOCOL
+   ========================================================================== */
+
+export interface StudioOwnerSecurityConfig {
+  masterPasscode: string;
+  masterPin: string;
+  ownerEmail: string;
+  updatedAt: string;
+}
+
+export const DEFAULT_OWNER_CONFIG: StudioOwnerSecurityConfig = {
+  masterPasscode: '123456',
+  masterPin: '123456',
+  ownerEmail: '',
+  updatedAt: '2026-09-04T00:00:00Z',
+};
+
+const OWNER_CONFIG_KEY = 'surjo_studio_owner_config_v1';
+const OWNER_SESSION_KEY = 'surjo_studio_owner_session_v1';
+
+const ownerConfigListeners = new Set<() => void>();
+
+export function subscribeStudioOwnerConfig(listener: () => void): () => void {
+  ownerConfigListeners.add(listener);
+  return () => {
+    ownerConfigListeners.delete(listener);
+  };
+}
+
+function notifyStudioOwnerConfigChange() {
+  ownerConfigListeners.forEach((l) => l());
+}
+
+export function getStudioOwnerConfig(): StudioOwnerSecurityConfig {
+  if (typeof window === 'undefined') return DEFAULT_OWNER_CONFIG;
+  try {
+    const raw = localStorage.getItem(OWNER_CONFIG_KEY);
+    if (!raw) return DEFAULT_OWNER_CONFIG;
+    const parsed = JSON.parse(raw);
+    let changed = false;
+    // If user's stored config still has the old mock keys, migrate to temporary code 123456
+    if (parsed.masterPasscode === 'SURJO-STUDIO-2026' || parsed.masterPasscode === 'SURJO-STUDIO-2025') {
+      parsed.masterPasscode = '123456';
+      if (parsed.masterPin === '9021') parsed.masterPin = '123456';
+      changed = true;
+    }
+    // If developer's email was stored as default, reset it so the photographer friend can enter their own studio email
+    if (parsed.ownerEmail === 'Iftat100@gmail.com') {
+      parsed.ownerEmail = '';
+      changed = true;
+    }
+    if (changed) {
+      localStorage.setItem(OWNER_CONFIG_KEY, JSON.stringify(parsed));
+    }
+    return { ...DEFAULT_OWNER_CONFIG, ...parsed };
+  } catch {
+    return DEFAULT_OWNER_CONFIG;
+  }
+}
+
+export function isInitialStudioSetupNeeded(): boolean {
+  const config = getStudioOwnerConfig();
+  return config.masterPasscode === '123456' || !config.ownerEmail;
+}
+
+export function saveStudioOwnerConfig(config: Partial<StudioOwnerSecurityConfig>): void {
+  if (typeof window === 'undefined') return;
+  const current = getStudioOwnerConfig();
+  const updated = { ...current, ...config, updatedAt: new Date().toISOString() };
+  localStorage.setItem(OWNER_CONFIG_KEY, JSON.stringify(updated));
+  notifyStudioOwnerConfigChange();
+}
+
+export function isStudioOwnerAuthenticated(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    // Check sessionStorage (current browser tab/session)
+    const sessionRaw = sessionStorage.getItem(OWNER_SESSION_KEY);
+    if (sessionRaw) {
+      const data = JSON.parse(sessionRaw);
+      if (data && data.authenticated) return true;
+    }
+    // Check localStorage (persisted if "remember me" was checked)
+    const localRaw = localStorage.getItem(OWNER_SESSION_KEY);
+    if (localRaw) {
+      const data = JSON.parse(localRaw);
+      if (data && data.authenticated && data.expiresAt) {
+        if (Date.now() < data.expiresAt) {
+          return true;
+        } else {
+          localStorage.removeItem(OWNER_SESSION_KEY);
+        }
+      }
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+const ownerAuthListeners = new Set<() => void>();
+
+export function subscribeStudioOwnerAuth(listener: () => void): () => void {
+  ownerAuthListeners.add(listener);
+  return () => {
+    ownerAuthListeners.delete(listener);
+  };
+}
+
+function notifyStudioOwnerAuthChange() {
+  ownerAuthListeners.forEach((l) => l());
+}
+
+export function getStudioOwnerAuthSnapshot(): boolean {
+  return isStudioOwnerAuthenticated();
+}
+
+export function getStudioOwnerAuthServerSnapshot(): boolean {
+  return false;
+}
+
+export function activateStudioOwnerSession(rememberMe: boolean = false): void {
+  if (typeof window === 'undefined') return;
+  const now = Date.now();
+  const sessionData = {
+    authenticated: true,
+    authenticatedAt: now,
+  };
+  sessionStorage.setItem(OWNER_SESSION_KEY, JSON.stringify(sessionData));
+  if (rememberMe) {
+    const localData = {
+      ...sessionData,
+      expiresAt: now + 24 * 60 * 60 * 1000, // 24 hours
+    };
+    localStorage.setItem(OWNER_SESSION_KEY, JSON.stringify(localData));
+  }
+  notifyStudioOwnerAuthChange();
+}
+
+export function terminateStudioOwnerSession(): void {
+  if (typeof window === 'undefined') return;
+  sessionStorage.removeItem(OWNER_SESSION_KEY);
+  localStorage.removeItem(OWNER_SESSION_KEY);
+  notifyStudioOwnerAuthChange();
+}
+
+export async function verifyStudioOwnerCredentials(
+  credentialInput: string
+): Promise<{ success: boolean; error?: string }> {
+  const config = getStudioOwnerConfig();
+  const normalized = credentialInput.trim().toUpperCase();
+
+  if (!normalized) {
+    return { success: false, error: 'Studio Master Passcode or PIN is required.' };
+  }
+
+  // Check against master passcode OR master PIN OR universal temporary master code 123456
+  const raw = credentialInput.trim();
+  const isPasscodeMatch = normalized === config.masterPasscode.trim().toUpperCase();
+  const isPinMatch = normalized === config.masterPin.trim();
+  const isTempCodeMatch = raw === '123456';
+
+  if (isPasscodeMatch || isPinMatch || isTempCodeMatch) {
+    return { success: true };
+  }
+
+  return {
+    success: false,
+    error: 'Incorrect Studio Master Key or PIN. Access is restricted to authorized studio personnel.',
+  };
+}

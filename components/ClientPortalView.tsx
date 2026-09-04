@@ -427,6 +427,43 @@ export const ClientPortalView: React.FC<ClientPortalViewProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [activeLightboxPhoto, lightboxIndex, filteredPhotos, handleToggleFavorite]);
 
+  // If No Gallery Exists in the system yet, show Elegant Awaiting Archive state
+  if (!activeGallery) {
+    return (
+      <div className="min-h-[70vh] flex items-center justify-center p-4">
+        <div className="bg-white dark:bg-[#151311] border border-[#E6DFD3] dark:border-[#2D261E] max-w-md w-full p-8 sm:p-10 shadow-xl space-y-6 text-center backdrop-blur-xl relative overflow-hidden">
+          <div className="w-12 h-12 rounded-full border border-[#C88E3E] bg-[#C88E3E]/10 dark:bg-[#C88E3E]/20 flex items-center justify-center mx-auto mb-2 shadow-sm">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className="w-6 h-6 text-[#C88E3E]">
+              <circle cx="12" cy="12" r="4" strokeWidth="1.5" stroke="currentColor" fill="currentColor" fillOpacity="0.3" />
+              <path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.93 4.93l1.77 1.77M17.3 17.3l1.77 1.77M4.93 19.07l1.77-1.77M17.3 6.7l1.77-1.77" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
+          </div>
+
+          <div className="space-y-2">
+            <span className="text-[10px] uppercase font-mono tracking-[0.3em] text-[#C88E3E] dark:text-[#D49A3D] font-semibold block">
+              SURJO MEDIA // CLIENT PORTAL
+            </span>
+            <h1 className="text-2xl sm:text-3xl font-light text-[#1C1917] dark:text-[#F7F3EC] font-serif leading-tight">
+              Archive Awaiting Delivery
+            </h1>
+            <p className="text-xs text-[#70665A] dark:text-[#A39886] leading-relaxed font-sans max-w-xs mx-auto">
+              No client photography collections have been published yet. If you are expecting your photo or film delivery, please contact your photographer for your private direct link.
+            </p>
+          </div>
+
+          {onSwitchToPhotographer && !isStandaloneClient && (
+            <button
+              onClick={onSwitchToPhotographer}
+              className="px-6 py-2.5 bg-[#C88E3E] hover:bg-[#B77D2F] text-white text-xs uppercase tracking-widest font-mono font-medium transition-all shadow-sm"
+            >
+              Studio Desk Login
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   // If Not Authenticated, show Luxury Surjo Media Security Gate
   if (!isAuthenticated) {
     return (
@@ -550,29 +587,6 @@ export const ClientPortalView: React.FC<ClientPortalViewProps> = ({
               <span>Verify Both & Enter Vault</span>
             </button>
           </form>
-
-          {/* Fast Demo Access options (Hidden in Standalone Client Mode) */}
-          {!isStandaloneClient && (
-            <div className="pt-4 border-t border-[#E6DFD3] dark:border-[#2D261E] space-y-2">
-              <p className="text-[10px] text-[#70665A] dark:text-[#A39886] font-mono">Quick Access Sandbox:</p>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => handleDemoAccess('primary_client')}
-                  className="py-1.5 px-2 bg-[#FAF7F0] dark:bg-[#1E1B17] hover:bg-[#C88E3E] hover:text-white dark:hover:bg-[#C88E3E] border border-[#E6DFD3] dark:border-[#2D261E] text-[10px] font-mono text-[#1C1917] dark:text-[#F7F3EC]"
-                >
-                  Client Mode (PIN {activeGallery?.accessPin})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleDemoAccess('guest_viewer')}
-                  className="py-1.5 px-2 bg-[#FAF7F0] dark:bg-[#1E1B17] hover:bg-[#C88E3E] hover:text-white dark:hover:bg-[#C88E3E] border border-[#E6DFD3] dark:border-[#2D261E] text-[10px] font-mono text-[#1C1917] dark:text-[#F7F3EC]"
-                >
-                  VIP Guest (View Only)
-                </button>
-              </div>
-            </div>
-          )}
         </div>
       </div>
     );
