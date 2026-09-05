@@ -139,14 +139,31 @@ export const GalleryEditor: React.FC<GalleryEditorProps> = ({
           );
           newPhotos.push(uploaded);
         } else {
-          const objectUrl = URL.createObjectURL(file);
+          // Direct server upload for persistent cross-client sharing
+          setUploadProgress((prev) => ({ ...prev, [file.name]: 40 }));
+          const formData = new FormData();
+          formData.append('file', file);
+
+          const uploadRes = await fetch('/api/upload', {
+            method: 'POST',
+            body: formData,
+          });
+
+          if (!uploadRes.ok) {
+            throw new Error(`Upload failed with status ${uploadRes.status}`);
+          }
+
+          const uploadData = await uploadRes.json();
+          const savedFile = uploadData.file;
+          const mediaUrl = savedFile?.url || URL.createObjectURL(file);
+
           const photo: PhotoItem = {
             id: `photo_${Date.now()}_${i}`,
             name: file.name.replace(/\.[^/.]+$/, ''),
             originalFileName: file.name,
             source: 'local_raw',
-            thumbnailUrl: objectUrl,
-            highResUrl: objectUrl,
+            thumbnailUrl: mediaUrl,
+            highResUrl: mediaUrl,
             fileSizeBytes: file.size,
             mimeType: file.type || 'image/jpeg',
             width: 4000,
@@ -167,6 +184,31 @@ export const GalleryEditor: React.FC<GalleryEditorProps> = ({
         }
       } catch (err) {
         console.error(`Error uploading ${file.name}:`, err);
+        // Fallback to local object URL only if server upload failed
+        const objectUrl = URL.createObjectURL(file);
+        const fallbackPhoto: PhotoItem = {
+          id: `photo_${Date.now()}_${i}`,
+          name: file.name.replace(/\.[^/.]+$/, ''),
+          originalFileName: file.name,
+          source: 'local_raw',
+          thumbnailUrl: objectUrl,
+          highResUrl: objectUrl,
+          fileSizeBytes: file.size,
+          mimeType: file.type || 'image/jpeg',
+          width: 4000,
+          height: 3000,
+          exif: {
+            cameraMake: 'Master Pro Camera',
+            cameraModel: 'Lossless Sensor RAW',
+            aperture: 'f/1.4',
+            shutterSpeed: '1/1000s',
+            iso: 'ISO 100',
+            capturedAt: new Date().toISOString(),
+          },
+          comments: [],
+          uploadedAt: new Date().toISOString(),
+        };
+        newPhotos.push(fallbackPhoto);
       }
     }
 

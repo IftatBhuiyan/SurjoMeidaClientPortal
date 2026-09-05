@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { ClientGallery, PhotoItem, PhotoComment, UserRole, ROLE_DEFINITIONS } from '@/lib/types';
-import { createLosslessZip } from '@/lib/google-drive';
+import { createLosslessZip, triggerLosslessDownload } from '@/lib/google-drive';
 import { authenticateGalleryAccess, recordAuditLog } from '@/lib/security';
 import {
   Lock,
@@ -297,11 +297,7 @@ export const ClientPortalView: React.FC<ClientPortalViewProps> = ({
     if (e) e.stopPropagation();
     if (!rolePermissions.canDownloadSingle) return;
 
-    const link = document.createElement('a');
-    link.href = photo.highResUrl || photo.thumbnailUrl;
-    link.download = photo.originalFileName || `${photo.name}.jpg`;
-    link.target = '_blank';
-    link.click();
+    triggerLosslessDownload(photo);
 
     if (activeGallery) {
       const audited = recordAuditLog(

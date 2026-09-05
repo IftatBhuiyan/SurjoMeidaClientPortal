@@ -38,8 +38,15 @@ driveProvider.setCustomParameters({
 
 // Flag to indicate if we are in the middle of a sign-in flow
 let isSigningIn = false;
-// Cache access token in memory
+
+// Cache access token in memory & sessionStorage for refresh resilience
+const TOKEN_SESSION_KEY = 'surjo_google_access_token';
 let cachedAccessToken: string | null = null;
+if (typeof window !== 'undefined') {
+  try {
+    cachedAccessToken = sessionStorage.getItem(TOKEN_SESSION_KEY);
+  } catch {}
+}
 
 export const initAuth = (
   onAuthSuccess?: (user: User, token: string) => void,
@@ -47,15 +54,18 @@ export const initAuth = (
 ) => {
   return onAuthStateChanged(auth, async (user: User | null) => {
     if (user) {
+      if (!cachedAccessToken && typeof window !== 'undefined') {
+        try {
+          cachedAccessToken = sessionStorage.getItem(TOKEN_SESSION_KEY);
+        } catch {}
+      }
       if (cachedAccessToken) {
         if (onAuthSuccess) onAuthSuccess(user, cachedAccessToken);
-      } else if (!isSigningIn) {
-        // If user is logged in but memory token is lost (e.g. page refresh),
-        // we can prompt or re-fetch token via popup on interaction
-        if (onAuthFailure) onAuthFailure();
+      } else {
+        if (onAuthSuccess) onAuthSuccess(user, '');
       }
     } else {
-      cachedAccessToken = null;
+      setCachedAccessToken(null);
       if (onAuthFailure) onAuthFailure();
     }
   });
@@ -74,7 +84,7 @@ export const googleSignIn = async (
     const result = await signInWithPopup(auth, provider);
     const credential = GoogleAuthProvider.credentialFromResult(result);
     if (credential?.accessToken) {
-      cachedAccessToken = credential.accessToken;
+      setCachedAccessToken(credential.accessToken);
     }
 
     return { user: result.user, accessToken: cachedAccessToken ?? undefined };
@@ -114,9 +124,18 @@ export const getAccessToken = async (): Promise<string | null> => {
 
 export const setCachedAccessToken = (token: string | null) => {
   cachedAccessToken = token;
+  if (typeof window !== 'undefined') {
+    try {
+      if (token) {
+        sessionStorage.setItem(TOKEN_SESSION_KEY, token);
+      } else {
+        sessionStorage.removeItem(TOKEN_SESSION_KEY);
+      }
+    } catch {}
+  }
 };
 
 export const logout = async () => {
   await signOut(auth);
-  cachedAccessToken = null;
+  setCachedAccessToken(null);
 };

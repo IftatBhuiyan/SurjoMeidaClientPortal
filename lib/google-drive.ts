@@ -361,7 +361,9 @@ export async function triggerLosslessDownload(
   accessToken?: string | null
 ): Promise<void> {
   try {
-    let downloadUrl = photo.highResUrl || photo.thumbnailUrl;
+    const rawUrl = photo.highResUrl || photo.thumbnailUrl;
+    const fileName = photo.originalFileName || `${photo.name}.jpg`;
+    let downloadUrl = rawUrl;
 
     // If Google Drive token and file ID are available, fetch original uncompressed blob
     if (accessToken && photo.driveFileId) {
@@ -369,14 +371,23 @@ export async function triggerLosslessDownload(
         const blob = await downloadDriveFileBlob(accessToken, photo.driveFileId);
         downloadUrl = URL.createObjectURL(blob);
       } catch (err) {
-        console.warn('Direct drive blob download failed, falling back to master CDN URL:', err);
+        console.warn('Direct drive blob download failed, falling back to proxy:', err);
       }
+    }
+
+    // If local server media, attach download=true
+    if (downloadUrl.startsWith('/api/media/')) {
+      downloadUrl = downloadUrl.includes('?')
+        ? `${downloadUrl}&download=true`
+        : `${downloadUrl}?download=true`;
+    } else if (downloadUrl.startsWith('http://') || downloadUrl.startsWith('https://')) {
+      // Use server download proxy to bypass CORS and force native browser attachment download
+      downloadUrl = `/api/download?url=${encodeURIComponent(downloadUrl)}&filename=${encodeURIComponent(fileName)}`;
     }
 
     const a = document.createElement('a');
     a.href = downloadUrl;
-    a.download = photo.originalFileName || `${photo.name}.jpg`;
-    a.target = '_blank';
+    a.download = fileName;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -405,26 +416,49 @@ export async function createLosslessZip(
     }
 
     try {
-      let fileBlob: Blob;
+      let fileBlob: Blob | null = null;
+      const targetUrl = photo.highResUrl || photo.thumbnailUrl;
+
       if (accessToken && photo.driveFileId) {
         try {
           fileBlob = await downloadDriveFileBlob(accessToken, photo.driveFileId);
         } catch {
-          const res = await fetch(photo.highResUrl || photo.thumbnailUrl);
-          fileBlob = await res.blob();
+          fileBlob = null;
         }
-      } else {
-        const res = await fetch(photo.highResUrl || photo.thumbnailUrl);
-        fileBlob = await res.blob();
       }
 
-      const extension = photo.originalFileName.includes('.')
-        ? photo.originalFileName.split('.').pop()
-        : photo.mediaType === 'video'
-        ? 'mp4'
-        : 'jpg';
-      const safeName = `${photo.name.replace(/[^a-z0-9_-]/gi, '_')}.${extension}`;
-      folder.file(safeName, fileBlob);
+      if (!fileBlob) {
+        try {
+          const directRes = await fetch(targetUrl);
+          if (directRes.ok) {
+            fileBlob = await directRes.blob();
+          }
+        } catch {
+          fileBlob = null;
+        }
+      }
+
+      // Proxy fallback for CORS-restricted external URLs
+      if (!fileBlob && (targetUrl.startsWith('http://') || targetUrl.startsWith('https://'))) {
+        try {
+          const proxyRes = await fetch(`/api/download?url=${encodeURIComponent(targetUrl)}&filename=${encodeURIComponent(photo.originalFileName || photo.name)}`);
+          if (proxyRes.ok) {
+            fileBlob = await proxyRes.blob();
+          }
+        } catch {
+          fileBlob = null;
+        }
+      }
+
+      if (fileBlob) {
+        const extension = photo.originalFileName.includes('.')
+          ? photo.originalFileName.split('.').pop()
+          : photo.mediaType === 'video'
+          ? 'mp4'
+          : 'jpg';
+        const safeName = `${photo.name.replace(/[^a-z0-9_-]/gi, '_')}.${extension}`;
+        folder.file(safeName, fileBlob);
+      }
     } catch (err) {
       console.warn(`Could not add photo ${photo.name} to zip:`, err);
     }
