@@ -37,12 +37,14 @@ interface VaultClientPageProps {
   initialPin?: string;
   initialPasscode?: string;
   initialRole?: string;
+  initialGallery?: ClientGallery;
 }
 
 export default function VaultClientPage({
   initialIdOrSlug,
   initialPin,
   initialPasscode,
+  initialGallery,
 }: VaultClientPageProps) {
   const galleries = useSyncExternalStore(
     subscribeGalleries,
@@ -50,11 +52,61 @@ export default function VaultClientPage({
     () => INITIAL_DEMO_GALLERIES
   );
 
+  const localMatch =
+    resolveGalleryFromMasterList(initialIdOrSlug, galleries) ||
+    galleries.find((g) => g.id === initialIdOrSlug);
+
+  const [remoteGallery, setRemoteGallery] = useState<ClientGallery | null>(initialGallery ?? null);
+  const [isLoadingRemote, setIsLoadingRemote] = useState<boolean>(!initialGallery && !localMatch);
+
   const isDarkMode = useSyncExternalStore(
     subscribeTheme,
     getThemeSnapshot,
     getThemeServerSnapshot
   );
+
+  // Resolve matching gallery from remote fetch, local storage, or server props
+  const resolvedGallery = remoteGallery || localMatch || initialGallery;
+
+  // Fetch gallery from server if not already available
+  useEffect(() => {
+    if (resolvedGallery) return;
+
+    let isCancelled = false;
+
+    async function fetchFromApi() {
+      try {
+        const res = await fetch(`/api/vaults/${encodeURIComponent(initialIdOrSlug)}`, {
+          cache: 'no-store',
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.gallery && !isCancelled) {
+            setRemoteGallery(data.gallery);
+            // Save to local cache so offline and subcomponents have it
+            try {
+              const { upsertGallery } = await import('@/lib/storage');
+              upsertGallery(data.gallery);
+            } catch {
+              // ignore
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Failed to fetch vault from server API:', err);
+      } finally {
+        if (!isCancelled) {
+          setIsLoadingRemote(false);
+        }
+      }
+    }
+
+    fetchFromApi();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [initialIdOrSlug, resolvedGallery]);
 
   const handleToggleTheme = () => {
     const current = getThemeSnapshot();
@@ -70,15 +122,36 @@ export default function VaultClientPage({
     themeListeners.forEach((l) => l());
   };
 
-  // Resolve matching gallery strictly
-  const resolvedGallery =
-    resolveGalleryFromMasterList(initialIdOrSlug, galleries) ||
-    galleries.find((g) => g.id === initialIdOrSlug);
-
-  const handleUpdateGallery = (updated: ClientGallery) => {
+  const handleUpdateGallery = async (updated: ClientGallery) => {
+    setRemoteGallery(updated);
     const next = galleries.map((g) => (g.id === updated.id ? updated : g));
     saveGalleries(next);
+
+    // Persist changes to server
+    try {
+      await fetch(`/api/vaults/${encodeURIComponent(updated.id)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updated),
+      });
+    } catch (err) {
+      console.error('Failed to sync gallery update to server:', err);
+    }
   };
+
+  if (isLoadingRemote && !resolvedGallery) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-[#FAF7F2] dark:bg-[#0C0B0A] text-[#1C1917] dark:text-[#F7F3EC] text-center space-y-4">
+        <div className="w-12 h-12 rounded-full bg-[#EAE3D2] dark:bg-[#25201A] flex items-center justify-center text-[#C88E3E] animate-pulse">
+          <Shield className="w-6 h-6 animate-spin" style={{ animationDuration: '3s' }} />
+        </div>
+        <h1 className="text-xl font-serif">Locating Private Vault...</h1>
+        <p className="text-xs font-mono text-[#70665A] dark:text-[#A39886]">
+          Establishing secure connection to Surjo Media archive
+        </p>
+      </div>
+    );
+  }
 
   if (!resolvedGallery) {
     return (

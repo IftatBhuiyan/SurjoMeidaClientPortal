@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Camera, HardDrive, Lock, Sparkles, UserCheck, LogIn, LogOut, CheckCircle2, ShieldCheck, Image as ImageIcon, ChevronDown, Cloud, KeyRound } from 'lucide-react';
-import { googleSignIn, logout } from '@/lib/firebase';
+import { Camera, HardDrive, Lock, Sparkles, UserCheck, LogIn, LogOut, CheckCircle2, ShieldCheck, Image as ImageIcon, ChevronDown, Cloud, KeyRound, AlertTriangle, Copy, Check, ExternalLink, X, HelpCircle } from 'lucide-react';
+import { googleSignIn, logout, firebaseProjectId, isGoogleVerificationError } from '@/lib/firebase';
 import { User } from 'firebase/auth';
 import { UserRole, ROLE_DEFINITIONS } from '@/lib/types';
 import { PulseThemeToggle } from './PulseThemeToggle';
@@ -43,6 +43,13 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenStudioSecurity,
 }) => {
   const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [authErrorModal, setAuthErrorModal] = useState<{
+    type: 'unauthorized_domain' | 'google_verification' | 'general';
+    domain: string;
+    message: string;
+  } | null>(null);
+  const [copiedDomain, setCopiedDomain] = useState(false);
+  const [copiedEmail, setCopiedEmail] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -64,12 +71,47 @@ export const Navbar: React.FC<NavbarProps> = ({
   const handleGoogleAuth = async () => {
     try {
       setIsLoggingIn(true);
-      const res = await googleSignIn();
-      if (res) {
+      const res = await googleSignIn({ withDrive: true });
+      if (res && res.accessToken) {
         onDriveConnected?.(res.user, res.accessToken);
       }
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Google sign-in error:', err);
+      const errCode = (err as { code?: string })?.code;
+      const errMsg = err instanceof Error ? err.message : String(err);
+      
+      const domain =
+        typeof window !== 'undefined' && window.location.hostname
+          ? window.location.hostname
+          : 'clients.surjomedia.com';
+
+      const isUnauthorized =
+        errCode === 'auth/unauthorized-domain' ||
+        errMsg.toLowerCase().includes('unauthorized-domain');
+      const isVerificationIssue =
+        isGoogleVerificationError(err) ||
+        errMsg.includes('403') ||
+        errMsg.includes('access_denied');
+
+      if (isUnauthorized) {
+        setAuthErrorModal({
+          type: 'unauthorized_domain',
+          domain,
+          message: `The domain "${domain}" is not authorized for Google OAuth in your Firebase project.`,
+        });
+      } else if (isVerificationIssue) {
+        setAuthErrorModal({
+          type: 'google_verification',
+          domain,
+          message: errMsg,
+        });
+      } else if (errCode !== 'auth/popup-closed-by-user' && !errMsg.includes('popup-closed-by-user')) {
+        setAuthErrorModal({
+          type: 'general',
+          domain,
+          message: errMsg || 'Failed to authenticate with Google.',
+        });
+      }
     } finally {
       setIsLoggingIn(false);
     }
@@ -336,24 +378,39 @@ export const Navbar: React.FC<NavbarProps> = ({
                 )}
               </div>
             ) : (
-              <button
-                id="btn-google-cloud-connect"
-                onClick={handleGoogleAuth}
-                disabled={isLoggingIn}
-                className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-1.5 bg-[#FAF7F0] dark:bg-[#151311] hover:bg-[#C88E3E] hover:text-white text-[#1C1917] dark:text-[#F7F3EC] border border-[#E6DFD3] dark:border-[#2D261E] hover:border-[#C88E3E] text-xs uppercase tracking-widest font-light transition-all shadow-sm group cursor-pointer"
-                title="Connect Google Workspace (Drive & Photos in one click)"
-              >
-                <div className="flex items-center -space-x-1">
-                  <HardDrive className="w-3.5 h-3.5 text-[#C88E3E] group-hover:text-white transition-colors" />
-                  <ImageIcon className="w-3 h-3 text-[#C88E3E] group-hover:text-white transition-colors" />
-                </div>
-                <span className="hidden sm:inline">
-                  {isLoggingIn ? 'Connecting...' : 'Connect Google'}
-                </span>
-                <span className="sm:hidden text-[10px] font-mono">
-                  {isLoggingIn ? 'Syncing...' : 'Sync'}
-                </span>
-              </button>
+              <div className="flex items-center gap-1">
+                <button
+                  id="btn-google-cloud-connect"
+                  onClick={() => handleGoogleAuth()}
+                  disabled={isLoggingIn}
+                  className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-1.5 bg-[#FAF7F0] dark:bg-[#151311] hover:bg-[#C88E3E] hover:text-white text-[#1C1917] dark:text-[#F7F3EC] border border-[#E6DFD3] dark:border-[#2D261E] hover:border-[#C88E3E] text-xs uppercase tracking-widest font-light transition-all shadow-sm group cursor-pointer"
+                  title="Connect Google Workspace (Drive & Photos in one click)"
+                >
+                  <div className="flex items-center -space-x-1">
+                    <HardDrive className="w-3.5 h-3.5 text-[#C88E3E] group-hover:text-white transition-colors" />
+                    <ImageIcon className="w-3 h-3 text-[#C88E3E] group-hover:text-white transition-colors" />
+                  </div>
+                  <span className="hidden sm:inline">
+                    {isLoggingIn ? 'Connecting...' : 'Connect Google'}
+                  </span>
+                  <span className="sm:hidden text-[10px] font-mono">
+                    {isLoggingIn ? 'Syncing...' : 'Sync'}
+                  </span>
+                </button>
+                <button
+                  onClick={() =>
+                    setAuthErrorModal({
+                      type: 'google_verification',
+                      domain: typeof window !== 'undefined' ? window.location.hostname : 'clients.surjomedia.com',
+                      message: '',
+                    })
+                  }
+                  className="p-1.5 text-[#70665A] dark:text-[#A39886] hover:text-[#C88E3E] dark:hover:text-[#C88E3E] border border-transparent hover:border-[#E6DFD3] dark:hover:border-[#2D261E] transition-colors cursor-pointer"
+                  title="Google Sign-In & Tester Setup Guide"
+                >
+                  <HelpCircle className="w-3.5 h-3.5" />
+                </button>
+              </div>
             )
           )}
         </div>
@@ -401,6 +458,182 @@ export const Navbar: React.FC<NavbarProps> = ({
           <div className="flex items-center gap-1.5 px-2.5 py-1 bg-[#FAF7F0] dark:bg-[#151311] border border-[#C88E3E]/40 text-[10px] font-mono text-[#C88E3E] dark:text-[#D49A3D]">
             <Lock className="w-3 h-3" />
             <span className="uppercase tracking-widest font-semibold">Private Client Vault</span>
+          </div>
+        </div>
+      )}
+
+      {/* OAuth Domain Authorization Help Modal */}
+      {authErrorModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-[#FAF7F2] dark:bg-[#141210] border border-[#C88E3E]/60 max-w-lg w-full p-6 shadow-2xl relative text-left">
+            <button
+              onClick={() => setAuthErrorModal(null)}
+              className="absolute top-4 right-4 text-[#70665A] hover:text-[#1C1917] dark:hover:text-[#F7F3EC] p-1 cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-start gap-3.5 mb-4">
+              <div className="w-10 h-10 rounded-full bg-[#C88E3E]/15 border border-[#C88E3E]/40 flex items-center justify-center shrink-0 text-[#C88E3E]">
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-base text-[#1C1917] dark:text-[#F7F3EC] tracking-tight">
+                  {authErrorModal.type === 'unauthorized_domain'
+                    ? 'Google OAuth Domain Authorization Required'
+                    : authErrorModal.type === 'google_verification'
+                    ? 'Google Cloud Verification & Tester Setup Required'
+                    : 'Google Sign-In Notice'}
+                </h3>
+                <p className="text-xs text-[#70665A] dark:text-[#A39886] font-mono mt-0.5">
+                  Google Cloud / Firebase Project: {firebaseProjectId}
+                </p>
+              </div>
+            </div>
+
+            {authErrorModal.type === 'unauthorized_domain' ? (
+              <div className="space-y-4 text-xs text-[#443E37] dark:text-[#D1C7BA]">
+                <p>
+                  Google and Firebase strictly block OAuth popups from custom domains until they are added to your project&apos;s authorized domains whitelist.
+                </p>
+
+                <div className="p-3 bg-white dark:bg-[#0C0B0A] border border-[#E6DFD3] dark:border-[#2D261E] rounded-none space-y-2">
+                  <div className="text-[11px] font-mono uppercase tracking-wider text-[#70665A] dark:text-[#A39886]">
+                    Step 1 &bull; Copy your live domain
+                  </div>
+                  <div className="flex items-center justify-between gap-2 p-2 bg-[#FAF7F2] dark:bg-[#1A1816] border border-[#E6DFD3] dark:border-[#2D261E] font-mono text-xs text-[#1C1917] dark:text-[#F7F3EC]">
+                    <span className="font-semibold select-all">{authErrorModal.domain}</span>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(authErrorModal.domain);
+                        setCopiedDomain(true);
+                        setTimeout(() => setCopiedDomain(false), 2500);
+                      }}
+                      className="flex items-center gap-1 px-2.5 py-1 bg-[#C88E3E] hover:bg-[#B37B2E] text-white text-[11px] font-mono uppercase tracking-wider transition-colors cursor-pointer"
+                    >
+                      {copiedDomain ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                      <span>{copiedDomain ? 'Copied' : 'Copy'}</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="p-3 bg-white dark:bg-[#0C0B0A] border border-[#E6DFD3] dark:border-[#2D261E] rounded-none space-y-2">
+                  <div className="text-[11px] font-mono uppercase tracking-wider text-[#70665A] dark:text-[#A39886]">
+                    Step 2 &bull; Add to Firebase Console
+                  </div>
+                  <ol className="list-decimal list-inside space-y-1.5 text-xs text-[#524B43] dark:text-[#BDB2A3]">
+                    <li>Open your Firebase Authentication Settings.</li>
+                    <li>Under the <strong>&quot;Authorized domains&quot;</strong> section, click <strong>&quot;Add domain&quot;</strong>.</li>
+                    <li>Paste <code className="px-1.5 py-0.5 bg-black/10 dark:bg-white/10 font-mono text-[11px] text-[#C88E3E]">{authErrorModal.domain}</code> and click <strong>Save</strong>.</li>
+                  </ol>
+                  <div className="pt-2">
+                    <a
+                      href={`https://console.firebase.google.com/project/${firebaseProjectId}/authentication/settings`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 px-3 py-2 bg-[#1C1917] dark:bg-[#F7F3EC] text-white dark:text-[#1C1917] hover:bg-[#C88E3E] dark:hover:bg-[#C88E3E] dark:hover:text-white text-xs font-mono tracking-wider uppercase transition-colors"
+                    >
+                      <span>Open Firebase Auth Settings</span>
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </a>
+                  </div>
+                </div>
+
+                <p className="text-[11px] text-[#70665A] dark:text-[#A39886] italic">
+                  Note: Changes in Firebase take effect in ~10 seconds. Once saved, click &quot;Connect Google&quot; again.
+                </p>
+              </div>
+            ) : authErrorModal.type === 'google_verification' ? (
+              <div className="space-y-4 text-xs text-[#443E37] dark:text-[#D1C7BA]">
+                <div className="p-3 bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-200">
+                  <p className="font-semibold mb-1">
+                    Google Error: &quot;Access blocked &bull; Error 403: access_denied&quot;
+                  </p>
+                  <p className="text-[11px] leading-relaxed">
+                    This occurs because your Google Cloud project is in <strong>Testing mode</strong>. Google strictly blocks any account from signing in unless that email is added to the <strong>Test Users</strong> list in your Google Cloud Console.
+                  </p>
+                </div>
+
+                {/* Option 1: Add Test Users */}
+                <div className="p-3 bg-white dark:bg-[#0C0B0A] border border-[#E6DFD3] dark:border-[#2D261E] rounded-none space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="text-[11px] font-mono uppercase tracking-wider text-[#C88E3E] font-semibold">
+                      Option A &bull; Add Collaborator Email as Test User (30 Seconds)
+                    </div>
+                  </div>
+                  <ol className="list-decimal list-inside space-y-1.5 text-xs text-[#524B43] dark:text-[#BDB2A3]">
+                    <li>Click the link below to open your Google Cloud OAuth Consent Screen.</li>
+                    <li>Scroll down to the <strong>&quot;Test users&quot;</strong> section and click <strong>&quot;+ ADD USERS&quot;</strong>.</li>
+                    <li>Add the email address of the person trying to log in (e.g. your friend&apos;s email):</li>
+                  </ol>
+
+                  <div className="flex items-center justify-between gap-2 p-2 bg-[#FAF7F2] dark:bg-[#1A1816] border border-[#E6DFD3] dark:border-[#2D261E] font-mono text-xs text-[#1C1917] dark:text-[#F7F3EC]">
+                    <span className="font-semibold select-all">safi00alam@gmail.com</span>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText('safi00alam@gmail.com');
+                        setCopiedEmail(true);
+                        setTimeout(() => setCopiedEmail(false), 2500);
+                      }}
+                      className="flex items-center gap-1 px-2.5 py-1 bg-[#C88E3E] hover:bg-[#B37B2E] text-white text-[11px] font-mono uppercase tracking-wider transition-colors cursor-pointer"
+                    >
+                      {copiedEmail ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                      <span>{copiedEmail ? 'Copied' : 'Copy Email'}</span>
+                    </button>
+                  </div>
+
+                  <div className="pt-2 flex flex-wrap gap-2">
+                    <a
+                      href={`https://console.cloud.google.com/apis/credentials/consent?project=${firebaseProjectId}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 px-3 py-2 bg-[#C88E3E] text-white hover:bg-[#B37B2E] text-xs font-mono tracking-wider uppercase transition-colors"
+                    >
+                      <span>Open Google Cloud Consent Screen</span>
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </a>
+                  </div>
+                </div>
+
+                {/* Option 2: Publish App */}
+                <div className="p-3 bg-white dark:bg-[#0C0B0A] border border-[#E6DFD3] dark:border-[#2D261E] rounded-none space-y-1.5">
+                  <div className="text-[11px] font-mono uppercase tracking-wider text-[#70665A] dark:text-[#A39886]">
+                    Option B &bull; Publish App to Production (Allows Any User)
+                  </div>
+                  <p className="text-[11px] leading-relaxed text-[#524B43] dark:text-[#BDB2A3]">
+                    On that same Google Cloud Consent Screen page, look under <strong>&quot;Publishing status&quot;</strong> and click <strong>&quot;PUBLISH APP&quot;</strong>. Once published, any client or team member can log in with Google without being manually added to the test list.
+                  </p>
+                </div>
+
+                {/* Passcode Reminder */}
+                <div className="p-2.5 bg-[#FAF7F0] dark:bg-[#1A1816] border border-[#E6DFD3] dark:border-[#2D261E] text-[11px] text-[#524B43] dark:text-[#BDB2A3]">
+                  <strong>Studio Workstation Access:</strong> Remember you do not need Google Sign-In to unlock the studio dashboard! You can always enter instantly with the <strong>Master Passcode (default: 123456)</strong>.
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="p-3 bg-red-500/10 border border-red-500/30 text-xs text-red-600 dark:text-red-400 font-mono">
+                  {authErrorModal.message}
+                </div>
+                <div className="pt-2">
+                  <button
+                    onClick={() => setAuthErrorModal({ ...authErrorModal, type: 'google_verification' })}
+                    className="text-xs text-[#C88E3E] hover:underline font-mono"
+                  >
+                    Seeing a Google 403 / Access Blocked error? View Setup Guide &rarr;
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <div className="mt-5 flex justify-end">
+              <button
+                onClick={() => setAuthErrorModal(null)}
+                className="px-4 py-2 bg-[#FAF7F2] dark:bg-[#1F1C19] border border-[#E6DFD3] dark:border-[#2D261E] hover:bg-[#EAE4D9] dark:hover:bg-[#2A2622] text-xs font-mono uppercase tracking-wider text-[#1C1917] dark:text-[#F7F3EC] transition-colors cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}

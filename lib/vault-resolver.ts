@@ -36,10 +36,10 @@ export function resolveGalleryFromMasterList(
   );
   if (directSlugMatch) return directSlugMatch;
 
-  // 3. Fallback matching without 'gallery_' prefix (e.g. 'vogue_editorial_2026' or 'vogue-editorial-2026')
-  const stripped = normalized.replace(/^gallery_/, '').replace(/[_-]/g, '');
+  // 3. Fallback matching without 'gallery_' or 'vault_' prefix (e.g. 'vogue_editorial_2026' or 'vogue-editorial-2026')
+  const stripped = normalized.replace(/^(gallery|vault)_/, '').replace(/[_-]/g, '');
   const prefixMatch = list.find((g) => {
-    const gStripped = g.id.toLowerCase().replace(/^gallery_/, '').replace(/[_-]/g, '');
+    const gStripped = g.id.toLowerCase().replace(/^(gallery|vault)_/, '').replace(/[_-]/g, '');
     if (gStripped === stripped) return true;
     if (g.vanitySlug && g.vanitySlug.toLowerCase().replace(/[_-]/g, '') === stripped) return true;
     return false;
@@ -50,7 +50,13 @@ export function resolveGalleryFromMasterList(
   const semanticMatch = list.find((g) => {
     const titleSlug = slugify(g.title);
     const clientSlug = slugify(g.clientName);
-    return titleSlug.includes(normalized) || clientSlug.includes(normalized) || normalized.includes(titleSlug);
+    return (
+      titleSlug === normalized ||
+      clientSlug === normalized ||
+      titleSlug.includes(normalized) ||
+      clientSlug.includes(normalized) ||
+      normalized.includes(titleSlug)
+    );
   });
   if (semanticMatch) return semanticMatch;
 
@@ -61,7 +67,9 @@ export function resolveGalleryFromMasterList(
       const storedMatch = stored.find(
         (g) =>
           g.id.toLowerCase() === normalized ||
-          (g.vanitySlug && g.vanitySlug.toLowerCase() === normalized)
+          (g.vanitySlug && g.vanitySlug.toLowerCase() === normalized) ||
+          slugify(g.title) === normalized ||
+          slugify(g.clientName) === normalized
       );
       if (storedMatch) return storedMatch;
     } catch {

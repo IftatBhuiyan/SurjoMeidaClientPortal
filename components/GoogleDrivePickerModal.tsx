@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { PhotoItem, ClientGallery } from '@/lib/types';
 import { listDriveFolders, listDriveMediaFiles, DriveFolder } from '@/lib/google-drive';
-import { googleSignIn } from '@/lib/firebase';
+import { googleSignIn, isGoogleVerificationError, firebaseProjectId } from '@/lib/firebase';
 import {
   HardDrive,
   Folder,
@@ -65,6 +65,7 @@ export const GoogleDrivePickerModal: React.FC<GoogleDrivePickerModalProps> = ({
   const [previewItem, setPreviewItem] = useState<PhotoItem | null>(null);
   const [linkAsMasterFolder, setLinkAsMasterFolder] = useState(true);
   const [isConnecting, setIsConnecting] = useState(false);
+  const [connectError, setConnectError] = useState<string | null>(null);
 
   // Fetch folders and media items when folder changes or modal opens
   useEffect(() => {
@@ -129,13 +130,27 @@ export const GoogleDrivePickerModal: React.FC<GoogleDrivePickerModalProps> = ({
   const handleConnect = async () => {
     try {
       setIsConnecting(true);
+      setConnectError(null);
       if (onConnectDrive) {
         onConnectDrive();
       } else {
-        await googleSignIn();
+        await googleSignIn({ withDrive: true });
       }
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Drive connect error:', err);
+      const errCode = (err as { code?: string })?.code;
+      const errMsg = err instanceof Error ? err.message : String(err);
+      if (errCode === 'auth/popup-closed-by-user' || errMsg.includes('popup-closed-by-user')) {
+        return;
+      }
+      if (errCode === 'auth/unauthorized-domain' || errMsg.toLowerCase().includes('unauthorized-domain')) {
+        const domain = typeof window !== 'undefined' && window.location.hostname ? window.location.hostname : 'clients.surjomedia.com';
+        setConnectError(`Domain "${domain}" is not authorized for Google OAuth. Please add "${domain}" to Firebase Console -> Authentication -> Settings -> Authorized domains.`);
+      } else if (isGoogleVerificationError(err) || errMsg.includes('403') || errMsg.includes('access_denied')) {
+        setConnectError(`Google blocked access (Error 403: Testing mode). Please add your Google account to Test Users in Google Cloud Console OAuth Consent Screen for project ${firebaseProjectId}.`);
+      } else {
+        setConnectError(errMsg || 'Google connection failed. Please try again.');
+      }
     } finally {
       setIsConnecting(false);
     }
@@ -224,6 +239,19 @@ export const GoogleDrivePickerModal: React.FC<GoogleDrivePickerModalProps> = ({
             </button>
           </div>
         </div>
+
+        {/* Error notification banner */}
+        {connectError && (
+          <div className="px-6 py-2.5 bg-amber-500/10 border-b border-amber-500/30 text-xs font-mono text-amber-700 dark:text-amber-400 flex items-center justify-between gap-3">
+            <span>{connectError}</span>
+            <button
+              onClick={() => setConnectError(null)}
+              className="text-amber-700 dark:text-amber-400 hover:opacity-80 shrink-0 font-bold px-1 cursor-pointer"
+            >
+              ✕
+            </button>
+          </div>
+        )}
 
         {/* Target Gallery Switcher (if provided) */}
         {galleries && galleries.length > 1 && onSelectTargetGallery && (

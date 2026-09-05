@@ -11,13 +11,14 @@ import {
   AlertCircle,
   LogIn,
   Check,
+  Mail,
 } from 'lucide-react';
 import {
   verifyStudioOwnerCredentials,
   activateStudioOwnerSession,
   getStudioOwnerConfig,
 } from '@/lib/security';
-import { googleSignIn } from '@/lib/firebase';
+import { googleSignIn, isGoogleVerificationError, firebaseProjectId } from '@/lib/firebase';
 import { User } from 'firebase/auth';
 
 interface StudioMasterGateProps {
@@ -31,14 +32,15 @@ export const StudioMasterGate: React.FC<StudioMasterGateProps> = ({
   onSwitchToClient,
   currentUser,
 }) => {
+  const ownerConfig = getStudioOwnerConfig();
+  const [emailInput, setEmailInput] = useState(ownerConfig.ownerEmail || '');
   const [credentialInput, setCredentialInput] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberWorkstation, setRememberWorkstation] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [showGoogleHelp, setShowGoogleHelp] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGoogleSigningIn, setIsGoogleSigningIn] = useState(false);
-
-  const ownerConfig = getStudioOwnerConfig();
 
   const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,7 +48,7 @@ export const StudioMasterGate: React.FC<StudioMasterGateProps> = ({
     setIsSubmitting(true);
 
     try {
-      const result = await verifyStudioOwnerCredentials(credentialInput);
+      const result = await verifyStudioOwnerCredentials(emailInput, credentialInput);
       if (result.success) {
         activateStudioOwnerSession(rememberWorkstation);
         const isUsingTemp = credentialInput.trim() === '123456' || ownerConfig.masterPasscode === '123456' || !ownerConfig.ownerEmail;
@@ -64,8 +66,10 @@ export const StudioMasterGate: React.FC<StudioMasterGateProps> = ({
   const handleGoogleAuth = async () => {
     setIsGoogleSigningIn(true);
     setErrorMessage(null);
+    setShowGoogleHelp(false);
     try {
-      const res = await googleSignIn();
+      // Basic sign in (does not request sensitive drive scopes)
+      const res = await googleSignIn({ withDrive: false });
       if (res && res.user) {
         activateStudioOwnerSession(rememberWorkstation);
         const isUsingTemp = ownerConfig.masterPasscode === '123456' || !ownerConfig.ownerEmail;
@@ -73,9 +77,26 @@ export const StudioMasterGate: React.FC<StudioMasterGateProps> = ({
       }
     } catch (err: unknown) {
       console.error('Owner Google Sign-in error:', err);
-      setErrorMessage(
-        err instanceof Error ? err.message : 'Google authentication failed. Please try again or use the Master Passcode.'
-      );
+      const errCode = (err as { code?: string })?.code;
+      const errMsg = err instanceof Error ? err.message : String(err);
+      if (errCode === 'auth/popup-closed-by-user' || errMsg.includes('popup-closed-by-user')) {
+        return;
+      }
+      if (errCode === 'auth/unauthorized-domain' || errMsg.toLowerCase().includes('unauthorized-domain')) {
+        const domain = typeof window !== 'undefined' && window.location.hostname ? window.location.hostname : 'clients.surjomedia.com';
+        setErrorMessage(
+          `Domain "${domain}" is not authorized for Google Sign-In. Please add "${domain}" to your Firebase Console under Authentication -> Settings -> Authorized domains.`
+        );
+      } else if (isGoogleVerificationError(err) || errMsg.includes('403') || errMsg.includes('access_denied')) {
+        setShowGoogleHelp(true);
+        setErrorMessage(
+          'Google blocked sign-in (Error 403: access_denied). Your Google Cloud OAuth is in "Testing" mode and requires adding tester emails.'
+        );
+      } else {
+        setErrorMessage(
+          err instanceof Error ? err.message : 'Google authentication failed. Please try again or use the Master Passcode.'
+        );
+      }
     } finally {
       setIsGoogleSigningIn(false);
     }
@@ -110,41 +131,65 @@ export const StudioMasterGate: React.FC<StudioMasterGateProps> = ({
           </p>
         </div>
 
-        {/* Security Notice */}
+        {/* Credentials Requirement Notice */}
         <div className="bg-[#FAF7F0] dark:bg-[#1E1B17] p-3.5 border border-[#E6DFD3] dark:border-[#2D261E] text-left">
-          <div className="flex items-center justify-between text-[10px] font-mono uppercase tracking-wider">
-            <span className="text-[#70665A] dark:text-[#A39886]">Encrypted Protocol</span>
-            <span className="text-[#C88E3E] font-medium">AES-256 RBAC</span>
+          <div className="flex items-center justify-between text-[10px] font-mono uppercase tracking-wider mb-1">
+            <span className="text-[#1C1917] dark:text-[#F7F3EC] font-medium">Director Authorization</span>
+            <span className="text-[#C88E3E] font-medium">Email + Passcode</span>
           </div>
-          <div className="h-[2px] w-full bg-[#E6DFD3] dark:bg-[#2D261E] my-2 overflow-hidden">
-            <div className="h-full w-full bg-[#C88E3E]" />
-          </div>
-          <p className="text-[9px] text-[#70665A] dark:text-[#A39886] font-mono leading-tight">
-            Enter authorized studio master passcode or quick numeric PIN to access the director workstation.
+          <p className="text-[10px] text-[#70665A] dark:text-[#A39886] font-mono leading-relaxed">
+            Enter your studio director email and master passcode (default: 123456) to unlock the production desk.
           </p>
         </div>
 
         {/* Master Passcode Form */}
         <form onSubmit={handlePasswordSubmit} className="space-y-4 text-left">
+          {/* Studio Director Email (Required) */}
+          <div className="space-y-1.5">
+            <label className="text-[10px] text-[#70665A] dark:text-[#A39886] uppercase font-mono tracking-widest flex items-center justify-between">
+              <span className="flex items-center gap-1.5">
+                <Mail className="w-3 h-3 text-[#C88E3E]" />
+                Studio Director Email
+              </span>
+              <span className="text-[9px] text-[#C88E3E] font-mono font-medium tracking-normal lowercase">required</span>
+            </label>
+            <input
+              type="email"
+              placeholder="e.g. director@surjomedia.com"
+              value={emailInput}
+              onChange={(e) => {
+                setEmailInput(e.target.value);
+                if (errorMessage) setErrorMessage(null);
+              }}
+              required
+              className="w-full bg-[#FAF7F0] dark:bg-[#0C0B0A] border border-[#E6DFD3] dark:border-[#2D261E] px-3.5 py-2.5 text-xs text-[#1C1917] dark:text-[#F7F3EC] focus:outline-none focus:border-[#C88E3E] font-mono tracking-wider placeholder-[#70665A]/40"
+              autoComplete="email"
+              autoFocus={!emailInput}
+            />
+          </div>
+
+          {/* Master Key or Studio PIN (Required) */}
           <div className="space-y-1.5">
             <label className="text-[10px] text-[#70665A] dark:text-[#A39886] uppercase font-mono tracking-widest flex items-center justify-between">
               <span className="flex items-center gap-1.5">
                 <KeyRound className="w-3 h-3 text-[#C88E3E]" />
-                Master Key or Studio PIN
+                Master Passcode or PIN
               </span>
+              <span className="text-[9px] text-[#C88E3E] font-mono font-medium tracking-normal lowercase">required</span>
             </label>
             <div className="relative">
               <input
                 type={showPassword ? 'text' : 'password'}
-                placeholder="Enter studio passcode or PIN"
+                placeholder="Enter passcode (default: 123456)"
                 value={credentialInput}
                 onChange={(e) => {
                   setCredentialInput(e.target.value);
                   if (errorMessage) setErrorMessage(null);
                 }}
+                required
                 className="w-full bg-[#FAF7F0] dark:bg-[#0C0B0A] border border-[#E6DFD3] dark:border-[#2D261E] px-3.5 py-2.5 text-xs text-[#1C1917] dark:text-[#F7F3EC] focus:outline-none focus:border-[#C88E3E] font-mono tracking-wider placeholder-[#70665A]/40"
                 autoComplete="current-password"
-                autoFocus
+                autoFocus={!!emailInput}
               />
               <button
                 type="button"
@@ -181,8 +226,8 @@ export const StudioMasterGate: React.FC<StudioMasterGateProps> = ({
           {/* Submit Button */}
           <button
             type="submit"
-            disabled={isSubmitting || !credentialInput.trim()}
-            className="w-full py-3 bg-[#C88E3E] hover:bg-[#B77D2F] disabled:opacity-50 text-white text-xs uppercase font-mono tracking-widest font-semibold transition-all flex items-center justify-center gap-2 shadow-md"
+            disabled={isSubmitting || !emailInput.trim() || !credentialInput.trim()}
+            className="w-full py-3 bg-[#C88E3E] hover:bg-[#B77D2F] disabled:opacity-50 text-white text-xs uppercase font-mono tracking-widest font-semibold transition-all flex items-center justify-center gap-2 shadow-md cursor-pointer disabled:cursor-not-allowed"
           >
             {isSubmitting ? (
               <span>Verifying Credentials...</span>

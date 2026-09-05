@@ -325,53 +325,45 @@ export const PhotographerDashboard: React.FC<PhotographerDashboardProps> = ({
       {/* Tab 1: Galleries Overview */}
       {activeTab === 'galleries' && (
         <div className="space-y-6 animate-fade-in">
-          {/* Quick Metrics Bar Styled with Surjo Warm Luxury Palette */}
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-            <div className="md:col-span-4 bg-white dark:bg-[#151311] p-5 border border-[#E6DFD3] dark:border-[#2D261E] flex flex-col justify-between shadow-sm">
-              <div className="flex justify-between items-center mb-3">
-                <span className="text-[10px] uppercase tracking-widest text-[#70665A] dark:text-[#A39886] font-mono">
-                  Archive Protocol
-                </span>
-                <span className="text-[10px] text-[#C88E3E] dark:text-[#D49A3D] font-mono font-semibold">
-                  AES-256
-                </span>
-              </div>
-              <div className="h-[3px] w-full bg-[#E6DFD3] dark:bg-[#2D261E] relative overflow-hidden">
-                <div className="absolute top-0 left-0 h-full w-3/4 bg-[#C88E3E]"></div>
-              </div>
-              <p className="text-[10px] mt-3 uppercase tracking-wider text-[#70665A] dark:text-[#A39886] font-mono flex items-center justify-between">
-                <span>Lossless Bitrate Stream</span>
-                <span className="text-[#C88E3E] dark:text-[#D49A3D] font-medium">Active</span>
-              </p>
+          {/* Studio Statistics & Storage Overview */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div className="border border-[#E6DFD3] dark:border-[#2D261E] p-4 text-center bg-white dark:bg-[#151311] flex flex-col justify-center shadow-sm">
+              <span className="block text-3xl font-light text-[#C88E3E] dark:text-[#D49A3D] font-serif">
+                {galleries.length}
+              </span>
+              <span className="block text-[9px] uppercase tracking-widest text-[#70665A] dark:text-[#A39886] font-mono mt-1">
+                Client Vaults
+              </span>
             </div>
 
-            <div className="md:col-span-8 grid grid-cols-3 gap-4">
-              <div className="border border-[#E6DFD3] dark:border-[#2D261E] p-4 text-center bg-white dark:bg-[#151311] flex flex-col justify-center shadow-sm">
-                <span className="block text-3xl font-light text-[#C88E3E] dark:text-[#D49A3D] font-serif">
-                  {galleries.length}
-                </span>
-                <span className="block text-[9px] uppercase tracking-widest text-[#70665A] dark:text-[#A39886] font-mono mt-1">
-                  Client Vaults
-                </span>
-              </div>
+            <div className="border border-[#E6DFD3] dark:border-[#2D261E] p-4 text-center bg-white dark:bg-[#151311] flex flex-col justify-center shadow-sm">
+              <span className="block text-3xl font-light text-[#C88E3E] dark:text-[#D49A3D] font-serif">
+                {galleries.reduce((acc, g) => acc + g.photos.length, 0)}
+              </span>
+              <span className="block text-[9px] uppercase tracking-widest text-[#70665A] dark:text-[#A39886] font-mono mt-1">
+                Master Frames
+              </span>
+            </div>
 
-              <div className="border border-[#E6DFD3] dark:border-[#2D261E] p-4 text-center bg-white dark:bg-[#151311] flex flex-col justify-center shadow-sm">
-                <span className="block text-3xl font-light text-[#C88E3E] dark:text-[#D49A3D] font-serif">
-                  {galleries.reduce((acc, g) => acc + g.photos.length, 0)}
-                </span>
-                <span className="block text-[9px] uppercase tracking-widest text-[#70665A] dark:text-[#A39886] font-mono mt-1">
-                  Master Frames
-                </span>
-              </div>
+            <div className="border border-[#E6DFD3] dark:border-[#2D261E] p-4 text-center bg-white dark:bg-[#151311] flex flex-col justify-center shadow-sm">
+              <span className="block text-3xl font-light text-[#C88E3E] dark:text-[#D49A3D] font-serif">
+                {galleries.reduce((acc, g) => acc + g.photos.filter((p) => p.isFavorite).length, 0)}
+              </span>
+              <span className="block text-[9px] uppercase tracking-widest text-[#70665A] dark:text-[#A39886] font-mono mt-1">
+                Client Starred
+              </span>
+            </div>
 
-              <div className="border border-[#E6DFD3] dark:border-[#2D261E] p-4 text-center bg-white dark:bg-[#151311] flex flex-col justify-center shadow-sm">
-                <span className="block text-3xl font-light text-[#C88E3E] dark:text-[#D49A3D] font-serif">
-                  {galleries.reduce((acc, g) => acc + g.photos.filter((p) => p.isFavorite).length, 0)}
-                </span>
-                <span className="block text-[9px] uppercase tracking-widest text-[#70665A] dark:text-[#A39886] font-mono mt-1">
-                  Client Starred
+            <div className="border border-[#E6DFD3] dark:border-[#2D261E] p-4 text-center bg-white dark:bg-[#151311] flex flex-col justify-center shadow-sm">
+              <div className="flex items-center justify-center gap-1.5 mb-1">
+                <span className={`w-2 h-2 rounded-full ${hasDriveAuth ? 'bg-emerald-500' : 'bg-[#C88E3E]'}`} />
+                <span className="text-sm font-light text-[#1C1917] dark:text-[#F7F3EC] font-serif">
+                  {hasDriveAuth ? 'Connected' : 'Local Storage'}
                 </span>
               </div>
+              <span className="block text-[9px] uppercase tracking-widest text-[#70665A] dark:text-[#A39886] font-mono mt-0.5">
+                {hasDriveAuth ? 'Google Drive Active' : 'Cloud Sync Standby'}
+              </span>
             </div>
           </div>
 

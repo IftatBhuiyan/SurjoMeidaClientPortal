@@ -12,20 +12,26 @@ import firebaseConfig from '../firebase-applet-config.json';
 // Initialize Firebase App instance safely
 const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 export const auth = getAuth(app);
+export const firebaseProjectId = firebaseConfig.projectId;
+
+// Base provider for standard Google Authentication (profile & email only - non-sensitive)
+const baseProvider = new GoogleAuthProvider();
+baseProvider.setCustomParameters({
+  prompt: 'select_account',
+});
 
 // Workspace & Cloud scopes (Drive + Google Photos Library)
 export const DRIVE_SCOPES = [
   'https://www.googleapis.com/auth/drive.file',
   'https://www.googleapis.com/auth/drive.readonly',
-  'https://www.googleapis.com/auth/drive',
   'https://www.googleapis.com/auth/photoslibrary.readonly',
 ];
 
-const provider = new GoogleAuthProvider();
+const driveProvider = new GoogleAuthProvider();
 DRIVE_SCOPES.forEach((scope) => {
-  provider.addScope(scope);
+  driveProvider.addScope(scope);
 });
-provider.setCustomParameters({
+driveProvider.setCustomParameters({
   prompt: 'consent',
   access_type: 'offline',
 });
@@ -55,23 +61,51 @@ export const initAuth = (
   });
 };
 
-export const googleSignIn = async (): Promise<{ user: User; accessToken: string } | null> => {
+export interface GoogleSignInOptions {
+  withDrive?: boolean;
+}
+
+export const googleSignIn = async (
+  options?: GoogleSignInOptions
+): Promise<{ user: User; accessToken?: string } | null> => {
   try {
     isSigningIn = true;
+    const provider = options?.withDrive ? driveProvider : baseProvider;
     const result = await signInWithPopup(auth, provider);
     const credential = GoogleAuthProvider.credentialFromResult(result);
-    if (!credential?.accessToken) {
-      throw new Error('Failed to get Google OAuth access token from Firebase Auth');
+    if (credential?.accessToken) {
+      cachedAccessToken = credential.accessToken;
     }
 
-    cachedAccessToken = credential.accessToken;
-    return { user: result.user, accessToken: cachedAccessToken };
+    return { user: result.user, accessToken: cachedAccessToken ?? undefined };
   } catch (error: unknown) {
     console.error('Sign in error:', error);
     throw error;
   } finally {
     isSigningIn = false;
   }
+};
+
+export const connectGoogleDrive = async (): Promise<{ user: User; accessToken: string } | null> => {
+  const res = await googleSignIn({ withDrive: true });
+  if (res && res.accessToken) {
+    return { user: res.user, accessToken: res.accessToken };
+  }
+  return null;
+};
+
+export const isGoogleVerificationError = (err: unknown): boolean => {
+  if (!err) return false;
+  const str = (err instanceof Error ? err.message : String(err)).toLowerCase();
+  const code = ((err as { code?: string })?.code || '').toLowerCase();
+  return (
+    str.includes('verification process') ||
+    str.includes('access_denied') ||
+    str.includes('403') ||
+    str.includes('developer-approved') ||
+    code.includes('access-denied') ||
+    code.includes('admin-restricted-operation')
+  );
 };
 
 export const getAccessToken = async (): Promise<string | null> => {

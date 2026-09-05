@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { resolveGalleryFromMasterList } from '@/lib/vault-resolver';
+import { getServerGallery } from '@/lib/server-vault-store';
 import VaultClientPage from '@/components/VaultClientPage';
 
 interface PageProps {
@@ -9,7 +10,7 @@ interface PageProps {
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
-  const gallery = resolveGalleryFromMasterList(id);
+  const gallery = (await getServerGallery(id)) || resolveGalleryFromMasterList(id);
 
   if (!gallery) {
     return {
@@ -53,12 +54,15 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 export default async function VaultPage({ params, searchParams }: PageProps) {
   const { id } = await params;
   const sp = await searchParams;
+  const serverGallery = await getServerGallery(id);
+
   return (
     <VaultClientPage
       initialIdOrSlug={id}
       initialPin={sp.pin}
       initialPasscode={sp.passcode}
       initialRole={sp.role}
+      initialGallery={serverGallery ?? undefined}
     />
   );
 }

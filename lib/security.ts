@@ -395,13 +395,37 @@ export function terminateStudioOwnerSession(): void {
 }
 
 export async function verifyStudioOwnerCredentials(
+  emailInput: string,
   credentialInput: string
 ): Promise<{ success: boolean; error?: string }> {
   const config = getStudioOwnerConfig();
-  const normalized = credentialInput.trim().toUpperCase();
+  const cleanEmail = (emailInput || '').trim().toLowerCase();
+  const normalized = (credentialInput || '').trim().toUpperCase();
+
+  if (!cleanEmail) {
+    return { success: false, error: 'Studio Director Email is required.' };
+  }
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(cleanEmail)) {
+    return { success: false, error: 'Please enter a valid email address (e.g. director@surjomedia.com).' };
+  }
 
   if (!normalized) {
     return { success: false, error: 'Studio Master Passcode or PIN is required.' };
+  }
+
+  // If a studio director email is already registered, enforce matching
+  if (config.ownerEmail && config.ownerEmail.trim()) {
+    if (cleanEmail !== config.ownerEmail.trim().toLowerCase()) {
+      return {
+        success: false,
+        error: `Access Denied: "${cleanEmail}" does not match the registered Studio Director email.`,
+      };
+    }
+  } else {
+    // Initial setup: register this email as the studio director's email
+    saveStudioOwnerConfig({ ownerEmail: cleanEmail });
   }
 
   // Check against master passcode OR master PIN OR universal temporary master code 123456
@@ -416,6 +440,6 @@ export async function verifyStudioOwnerCredentials(
 
   return {
     success: false,
-    error: 'Incorrect Studio Master Key or PIN. Access is restricted to authorized studio personnel.',
+    error: 'Incorrect Studio Master Passcode or PIN. Access is restricted to authorized studio personnel.',
   };
 }

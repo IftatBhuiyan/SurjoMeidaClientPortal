@@ -11,9 +11,11 @@ import { ClientGallery, PhotoItem } from '@/lib/types';
 import {
   getGalleries,
   saveGalleries,
+  upsertGallery,
   getStudioConcepts,
   subscribeGalleries,
   subscribeConcepts,
+  syncGalleriesWithServer,
   INITIAL_DEMO_GALLERIES,
   INITIAL_CONCEPTS,
 } from '@/lib/storage';
@@ -167,6 +169,9 @@ export default function HomeClient({
 
   // Initialize Firebase Auth listener
   useEffect(() => {
+    // Synchronize local galleries with server store so vaults are accessible across all devices
+    syncGalleriesWithServer();
+
     initAuth(
       (user, token) => {
         setCurrentUser(user);
@@ -180,6 +185,22 @@ export default function HomeClient({
       }
     );
   }, []);
+
+  // If URL has a specific vault requested but not yet in local memory, fetch immediately from server
+  useEffect(() => {
+    if (targetLookupId && !resolvedTarget) {
+      fetch(`/api/vaults/${encodeURIComponent(targetLookupId)}`, { cache: 'no-store' })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (data?.gallery) {
+            upsertGallery(data.gallery);
+          }
+        })
+        .catch((err) => {
+          console.warn('Failed to resolve target vault from server:', err);
+        });
+    }
+  }, [targetLookupId, resolvedTarget]);
 
   const handleUpdateGalleries = (updatedGalleries: ClientGallery[]) => {
     saveGalleries(updatedGalleries);

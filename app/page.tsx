@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import HomeClient from '@/components/HomeClient';
 import { resolveGalleryFromMasterList } from '@/lib/vault-resolver';
+import { getServerGallery } from '@/lib/server-vault-store';
 
 interface PageProps {
   searchParams: Promise<{
@@ -17,7 +18,7 @@ export async function generateMetadata({ searchParams }: PageProps): Promise<Met
   const vaultId = sp.vault || sp.galleryId;
 
   if (vaultId) {
-    const gallery = resolveGalleryFromMasterList(vaultId);
+    const gallery = (await getServerGallery(vaultId)) || resolveGalleryFromMasterList(vaultId);
     if (gallery) {
       const title = `${gallery.title} — ${gallery.clientName}`;
       const description = `Private high-resolution photo & film vault for ${gallery.clientName}. Encrypted client access by Surjo Media.`;

@@ -100,6 +100,21 @@ export function hasDemoData(): boolean {
   return false;
 }
 
+let batchSyncTimeout: any = null;
+function triggerBatchSync(galleries: ClientGallery[]): void {
+  if (typeof window === 'undefined') return;
+  if (batchSyncTimeout) clearTimeout(batchSyncTimeout);
+  batchSyncTimeout = setTimeout(() => {
+    fetch('/api/vaults', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(galleries),
+    }).catch((err) => {
+      console.warn('Failed to sync galleries batch to server:', err);
+    });
+  }, 100);
+}
+
 export function saveGalleries(galleries: ClientGallery[]): void {
   if (typeof window === 'undefined') return;
   try {
@@ -108,6 +123,7 @@ export function saveGalleries(galleries: ClientGallery[]): void {
     cachedGalleries = galleries;
     lastGalleriesRaw = raw;
     notifyGalleries();
+    triggerBatchSync(galleries);
   } catch (err) {
     console.error('Failed to save galleries to localStorage:', err);
   }
@@ -116,6 +132,32 @@ export function saveGalleries(galleries: ClientGallery[]): void {
 export function getGalleryById(id: string): ClientGallery | undefined {
   const galleries = getGalleries();
   return galleries.find((g) => g.id === id);
+}
+
+/**
+ * Asynchronously persists a gallery to the server
+ */
+function syncGalleryToServer(gallery: ClientGallery): void {
+  if (typeof window === 'undefined') return;
+  fetch('/api/vaults', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(gallery),
+  }).catch((err) => {
+    console.warn('Background sync to server failed:', err);
+  });
+}
+
+/**
+ * Asynchronously deletes a gallery from the server
+ */
+function deleteGalleryFromServer(id: string): void {
+  if (typeof window === 'undefined') return;
+  fetch(`/api/vaults/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+  }).catch((err) => {
+    console.warn('Background delete from server failed:', err);
+  });
 }
 
 export function upsertGallery(gallery: ClientGallery): void {
@@ -135,11 +177,13 @@ export function upsertGallery(gallery: ClientGallery): void {
     galleries.unshift(ensuredGallery);
   }
   saveGalleries(galleries);
+  syncGalleryToServer(ensuredGallery);
 }
 
 export function deleteGallery(id: string): void {
   const galleries = getGalleries().filter((g) => g.id !== id);
   saveGalleries(galleries);
+  deleteGalleryFromServer(id);
 }
 
 export function updatePhotoInGallery(galleryId: string, photoId: string, updates: Partial<PhotoItem>): void {
@@ -156,6 +200,7 @@ export function updatePhotoInGallery(galleryId: string, photoId: string, updates
     gallery.updatedAt = new Date().toISOString();
     galleries[galleryIndex] = gallery;
     saveGalleries(galleries);
+    syncGalleryToServer(gallery);
   }
 }
 
@@ -172,6 +217,72 @@ export function addPhotoToGallery(galleryId: string, photo: PhotoItem): void {
   gallery.updatedAt = new Date().toISOString();
   galleries[galleryIndex] = gallery;
   saveGalleries(galleries);
+  syncGalleryToServer(gallery);
+}
+
+/**
+ * Bidirectionally synchronizes local storage galleries with the server.
+ * Uploads any locally created galleries (e.g. created on creator's machine) to the server,
+ * and downloads any server galleries into local storage.
+ */
+export async function syncGalleriesWithServer(): Promise<ClientGallery[]> {
+  if (typeof window === 'undefined') return [];
+
+  try {
+    const localGalleries = getGalleries();
+    const res = await fetch('/api/vaults', { cache: 'no-store' });
+    if (!res.ok) return localGalleries;
+
+    const data = await res.json();
+    const serverGalleries: ClientGallery[] = Array.isArray(data.galleries) ? data.galleries : [];
+
+    const map = new Map<string, ClientGallery>();
+
+    // 1. Put server galleries in map
+    for (const g of serverGalleries) {
+      if (g && g.id) map.set(g.id, g);
+    }
+
+    // 2. Compare local galleries
+    const localOnlyToUpload: ClientGallery[] = [];
+    for (const localG of localGalleries) {
+      if (!localG || !localG.id) continue;
+      const remoteG = map.get(localG.id);
+      if (!remoteG) {
+        // Local gallery not yet on server -> upload it!
+        map.set(localG.id, localG);
+        localOnlyToUpload.push(localG);
+      } else {
+        // Both have it, compare updatedAt
+        const localTime = localG.updatedAt ? new Date(localG.updatedAt).getTime() : 0;
+        const remoteTime = remoteG.updatedAt ? new Date(remoteG.updatedAt).getTime() : 0;
+        if (localTime > remoteTime) {
+          map.set(localG.id, localG);
+          localOnlyToUpload.push(localG);
+        }
+      }
+    }
+
+    // If local has galleries missing on server, push them in batch
+    if (localOnlyToUpload.length > 0) {
+      fetch('/api/vaults', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(localOnlyToUpload),
+      }).catch((err) => console.warn('Failed to batch upload local galleries:', err));
+    }
+
+    const merged = Array.from(map.values());
+    // Only write to storage and notify if different
+    if (JSON.stringify(merged) !== JSON.stringify(localGalleries)) {
+      saveGalleries(merged);
+    }
+
+    return merged;
+  } catch (err) {
+    console.warn('syncGalleriesWithServer error:', err);
+    return getGalleries();
+  }
 }
 
 export function getStudioConcepts(): GeneratedConcept[] {

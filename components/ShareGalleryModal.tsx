@@ -57,6 +57,17 @@ export const ShareGalleryModal: React.FC<ShareGalleryModalProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
+  // Ensure the shared gallery is synced to the server when the share modal is viewed
+  useEffect(() => {
+    if (isOpen && gallery) {
+      fetch('/api/vaults', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(gallery),
+      }).catch((err) => console.warn('Share modal vault sync error:', err));
+    }
+  }, [isOpen, gallery]);
+
   const currentOrigin = typeof window !== 'undefined' ? window.location.origin : '';
 
   const currentVaultUrl = buildVaultUrl(
