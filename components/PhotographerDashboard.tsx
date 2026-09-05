@@ -1,9 +1,14 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useSyncExternalStore } from 'react';
 import { ClientGallery, GeneratedConcept, PhotoItem } from '@/lib/types';
 import { createDriveFolder } from '@/lib/google-drive';
-import { createDefaultAccessKeys, getStudioOwnerConfig, subscribeStudioOwnerConfig } from '@/lib/security';
+import {
+  createDefaultAccessKeys,
+  subscribeStudioOwnerConfig,
+  getStudioOwnerConfigSnapshot,
+  getStudioOwnerConfigServerSnapshot,
+} from '@/lib/security';
 import { GalleryEditor } from './GalleryEditor';
 import { StudioAiLab } from './StudioAiLab';
 import { ShareGalleryModal } from './ShareGalleryModal';
@@ -56,15 +61,12 @@ export const PhotographerDashboard: React.FC<PhotographerDashboardProps> = ({
   const [drivePickerTargetGalleryId, setDrivePickerTargetGalleryId] = useState<string>(galleries[0]?.id || '');
   const [shareModalGallery, setShareModalGallery] = useState<ClientGallery | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [ownerConfig, setOwnerConfig] = useState(() => getStudioOwnerConfig());
+  const ownerConfig = useSyncExternalStore(
+    subscribeStudioOwnerConfig,
+    getStudioOwnerConfigSnapshot,
+    getStudioOwnerConfigServerSnapshot
+  );
   const [dismissedTempBanner, setDismissedTempBanner] = useState(false);
-
-  useEffect(() => {
-    const unsub = subscribeStudioOwnerConfig(() => {
-      setOwnerConfig(getStudioOwnerConfig());
-    });
-    return unsub;
-  }, []);
 
   // New gallery form state
   const [newTitle, setNewTitle] = useState('');

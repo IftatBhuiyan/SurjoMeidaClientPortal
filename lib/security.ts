@@ -277,8 +277,31 @@ export function subscribeStudioOwnerConfig(listener: () => void): () => void {
   };
 }
 
+let cachedOwnerConfig: StudioOwnerSecurityConfig = DEFAULT_OWNER_CONFIG;
+let cachedOwnerConfigRaw: string | null = '__init__';
+
 function notifyStudioOwnerConfigChange() {
+  cachedOwnerConfigRaw = '__invalidated__';
   ownerConfigListeners.forEach((l) => l());
+}
+
+export function getStudioOwnerConfigSnapshot(): StudioOwnerSecurityConfig {
+  if (typeof window === 'undefined') return DEFAULT_OWNER_CONFIG;
+  try {
+    const raw = localStorage.getItem(OWNER_CONFIG_KEY);
+    if (raw === cachedOwnerConfigRaw && cachedOwnerConfigRaw !== '__init__') {
+      return cachedOwnerConfig;
+    }
+    cachedOwnerConfigRaw = raw;
+    cachedOwnerConfig = getStudioOwnerConfig();
+    return cachedOwnerConfig;
+  } catch {
+    return DEFAULT_OWNER_CONFIG;
+  }
+}
+
+export function getStudioOwnerConfigServerSnapshot(): StudioOwnerSecurityConfig {
+  return DEFAULT_OWNER_CONFIG;
 }
 
 export function getStudioOwnerConfig(): StudioOwnerSecurityConfig {

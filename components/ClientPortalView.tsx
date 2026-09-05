@@ -101,7 +101,10 @@ export const ClientPortalView: React.FC<ClientPortalViewProps> = ({
 
   // Gallery view state
   const [filterMode, setFilterMode] = useState<'all' | 'favorites' | 'retouch'>('all');
+  const [layoutMode, setLayoutMode] = useState<'bento' | 'grid'>('bento');
   const [gridColumns, setGridColumns] = useState<'2' | '3' | '4'>('3');
+  const [brokenPhotos, setBrokenPhotos] = useState<Record<string, boolean>>({});
+  const [detectedAspectRatios, setDetectedAspectRatios] = useState<Record<string, { width: number; height: number; isPortrait: boolean }>>({});
   const [activeLightboxPhoto, setActiveLightboxPhoto] = useState<PhotoItem | null>(null);
   const [lightboxIndex, setLightboxIndex] = useState<number>(0);
   const [isZoomed, setIsZoomed] = useState(false);
@@ -412,8 +415,13 @@ export const ClientPortalView: React.FC<ClientPortalViewProps> = ({
         setActiveLightboxPhoto(filteredPhotos[prevIdx]);
         setIsZoomed(false);
       } else if (e.key === 'Escape') {
-        setActiveLightboxPhoto(null);
-        setIsZoomed(false);
+        if (showExifDrawer) {
+          setShowExifDrawer(false);
+        } else {
+          setActiveLightboxPhoto(null);
+          setIsZoomed(false);
+          setLoupeMode('off');
+        }
       } else if (e.key === 'f' || e.key === 'F') {
         handleToggleFavorite(activeLightboxPhoto.id);
       }
@@ -421,7 +429,7 @@ export const ClientPortalView: React.FC<ClientPortalViewProps> = ({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeLightboxPhoto, lightboxIndex, filteredPhotos, handleToggleFavorite]);
+  }, [activeLightboxPhoto, lightboxIndex, filteredPhotos, handleToggleFavorite, showExifDrawer]);
 
   // If No Gallery Exists in the system yet, show Elegant Awaiting Archive state
   if (!activeGallery) {
@@ -837,31 +845,60 @@ export const ClientPortalView: React.FC<ClientPortalViewProps> = ({
         {/* Quality Tier & Grid Switcher */}
         <div className="flex flex-wrap items-center gap-3">
           {/* Quality Tier Badge */}
-          <div className="hidden sm:flex items-center gap-1 bg-[#FAF7F0] dark:bg-[#1E1B17] px-2.5 py-1 border border-[#E6DFD3] dark:border-[#2D261E] text-[10px] font-mono text-[#C88E3E]">
+          <div className="hidden sm:flex items-center gap-1 bg-[#FAF7F0] dark:bg-[#1E1B17] px-2.5 py-1 border border-[#E6DFD3] dark:border-[#2D261E] text-[10px] font-mono text-[#C88E3E] rounded-md">
             <Sparkles className="w-3 h-3 text-[#C88E3E]" />
             <span className="uppercase tracking-wider font-semibold">Lossless Master Source</span>
           </div>
 
-          <div className="flex items-center gap-2">
+          {/* Layout Mode Switcher: Bento Box vs Uniform */}
+          <div className="flex items-center bg-white dark:bg-[#151311] p-0.5 border border-[#E6DFD3] dark:border-[#2D261E] text-xs font-mono shadow-sm rounded-lg">
+            <button
+              onClick={() => setLayoutMode('bento')}
+              className={`px-2.5 py-1 flex items-center gap-1.5 transition-all rounded-md ${
+                layoutMode === 'bento'
+                  ? 'bg-[#C88E3E] text-white font-medium shadow-sm'
+                  : 'text-[#70665A] dark:text-[#A39886] hover:text-[#1C1917] dark:hover:text-[#F7F3EC]'
+              }`}
+              title="Bento Box style: Adapts naturally to portrait & landscape proportions without cropping"
+            >
+              <Layers className="w-3.5 h-3.5" />
+              <span>Bento Box</span>
+            </button>
+            <button
+              onClick={() => setLayoutMode('grid')}
+              className={`px-2.5 py-1 flex items-center gap-1.5 transition-all rounded-md ${
+                layoutMode === 'grid'
+                  ? 'bg-[#C88E3E] text-white font-medium shadow-sm'
+                  : 'text-[#70665A] dark:text-[#A39886] hover:text-[#1C1917] dark:hover:text-[#F7F3EC]'
+              }`}
+              title="Uniform grid with uncropped letterbox fit"
+            >
+              <Grid className="w-3.5 h-3.5" />
+              <span>Uniform</span>
+            </button>
+          </div>
+
+          {/* Columns Selector */}
+          <div className="flex items-center gap-1.5">
             <span className="text-[10px] font-mono text-[#70665A] dark:text-[#A39886] uppercase tracking-widest hidden sm:inline">
-              Grid:
+              Columns:
             </span>
-            <div className="flex items-center bg-white dark:bg-[#151311] p-0.5 border border-[#E6DFD3] dark:border-[#2D261E] text-xs font-mono shadow-sm">
+            <div className="flex items-center bg-white dark:bg-[#151311] p-0.5 border border-[#E6DFD3] dark:border-[#2D261E] text-xs font-mono shadow-sm rounded-lg">
               <button
                 onClick={() => setGridColumns('2')}
-                className={`px-2 py-0.5 ${gridColumns === '2' ? 'bg-[#C88E3E] text-white' : 'text-[#70665A] dark:text-[#A39886] hover:text-[#1C1917] dark:hover:text-[#F7F3EC]'}`}
+                className={`px-2 py-0.5 rounded-md ${gridColumns === '2' ? 'bg-[#C88E3E] text-white' : 'text-[#70665A] dark:text-[#A39886] hover:text-[#1C1917] dark:hover:text-[#F7F3EC]'}`}
               >
                 2-Col
               </button>
               <button
                 onClick={() => setGridColumns('3')}
-                className={`px-2 py-0.5 ${gridColumns === '3' ? 'bg-[#C88E3E] text-white' : 'text-[#70665A] dark:text-[#A39886] hover:text-[#1C1917] dark:hover:text-[#F7F3EC]'}`}
+                className={`px-2 py-0.5 rounded-md ${gridColumns === '3' ? 'bg-[#C88E3E] text-white' : 'text-[#70665A] dark:text-[#A39886] hover:text-[#1C1917] dark:hover:text-[#F7F3EC]'}`}
               >
                 3-Col
               </button>
               <button
                 onClick={() => setGridColumns('4')}
-                className={`px-2 py-0.5 ${gridColumns === '4' ? 'bg-[#C88E3E] text-white' : 'text-[#70665A] dark:text-[#A39886] hover:text-[#1C1917] dark:hover:text-[#F7F3EC]'}`}
+                className={`px-2 py-0.5 rounded-md ${gridColumns === '4' ? 'bg-[#C88E3E] text-white' : 'text-[#70665A] dark:text-[#A39886] hover:text-[#1C1917] dark:hover:text-[#F7F3EC]'}`}
               >
                 4-Col
               </button>
@@ -872,27 +909,29 @@ export const ClientPortalView: React.FC<ClientPortalViewProps> = ({
 
       {/* Main Gallery Photographs Grid */}
       {filteredPhotos.length === 0 ? (
-        <div className="bg-white dark:bg-[#151311] border border-[#E6DFD3] dark:border-[#2D261E] p-16 text-center space-y-3 shadow-sm">
+        <div className="bg-white dark:bg-[#151311] border border-[#E6DFD3] dark:border-[#2D261E] p-16 text-center space-y-3 shadow-sm rounded-2xl">
           <Star className="w-10 h-10 text-[#C88E3E]/40 mx-auto" />
           <h4 className="text-base font-serif text-[#1C1917] dark:text-[#F7F3EC]">No photographs in this filter</h4>
           <p className="text-xs text-[#70665A] dark:text-[#A39886] font-mono">
             Star photos to populate your favorites collection for fine art printing.
           </p>
         </div>
-      ) : (
+      ) : layoutMode === 'bento' ? (
+        /* Bento Box Masonry Grid - Full Portrait & Landscape Preservation */
         <div
-          className={`grid gap-4 sm:gap-6 ${
+          className={`gap-6 ${
             gridColumns === '2'
-              ? 'grid-cols-1 sm:grid-cols-2'
+              ? 'columns-1 sm:columns-2'
               : gridColumns === '4'
-              ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4'
-              : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'
+              ? 'columns-1 sm:columns-2 lg:columns-3 xl:columns-4'
+              : 'columns-1 sm:columns-2 lg:columns-3'
           }`}
         >
           {filteredPhotos.map((photo, index) => {
             const hasWatermark = activeGallery.isWatermarkActive || !rolePermissions.canViewUnwatermarked;
             const watermarkStyle = activeGallery.watermarkStyle || 'diagonal_grid';
             const watermarkTextDisplay = activeGallery.watermarkText || '© SURJO MEDIA — PROOF';
+            const isPortrait = detectedAspectRatios[photo.id]?.isPortrait || photo.height > photo.width;
 
             return (
               <div
@@ -910,16 +949,44 @@ export const ClientPortalView: React.FC<ClientPortalViewProps> = ({
                   e.preventDefault();
                   triggerSecurityWarning('Right-click copy protection active. Use official client download controls.');
                 }}
-                className="group relative bg-white dark:bg-[#151311] border border-[#E6DFD3] dark:border-[#2D261E] hover:border-[#C88E3E] dark:hover:border-[#D49A3D] overflow-hidden cursor-pointer transition-all flex flex-col shadow-sm select-none"
+                className="break-inside-avoid mb-6 group relative bg-white dark:bg-[#151311] border border-[#E6DFD3] dark:border-[#2D261E] hover:border-[#C88E3E] dark:hover:border-[#D49A3D] rounded-2xl overflow-hidden cursor-pointer transition-all duration-300 flex flex-col shadow-sm hover:shadow-xl select-none"
               >
-                {/* Photo Aspect Container */}
-                <div className="relative aspect-[3/2] overflow-hidden bg-black/90">
-                  <img
-                    src={photo.thumbnailUrl}
-                    alt={photo.name}
-                    className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105 pointer-events-none"
-                    referrerPolicy="no-referrer"
-                  />
+                {/* Photo Aspect Container - Dynamically scales with image height so portraits are never cropped */}
+                <div className="relative w-full overflow-hidden bg-[#0C0B0A] flex items-center justify-center min-h-[140px]">
+                  {brokenPhotos[photo.id] ? (
+                    <div className="w-full aspect-[3/4] flex flex-col items-center justify-center p-8 bg-gradient-to-b from-[#1E1B17] to-[#12100E] text-center space-y-3">
+                      <div className="w-12 h-12 rounded-xl bg-[#C88E3E]/10 border border-[#C88E3E]/30 flex items-center justify-center text-[#C88E3E]">
+                        <Camera className="w-6 h-6" />
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-xs font-serif text-[#F7F3EC]">{photo.name}</p>
+                        <p className="text-[10px] font-mono text-[#A39886]">Lossless Master Asset</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <img
+                      src={photo.thumbnailUrl}
+                      alt={photo.name}
+                      className="w-full h-auto block object-cover transition-transform duration-700 ease-out group-hover:scale-[1.02] pointer-events-none"
+                      referrerPolicy="no-referrer"
+                      onLoad={(e) => {
+                        const { naturalWidth, naturalHeight } = e.currentTarget;
+                        if (naturalWidth && naturalHeight) {
+                          setDetectedAspectRatios((prev) => ({
+                            ...prev,
+                            [photo.id]: {
+                              width: naturalWidth,
+                              height: naturalHeight,
+                              isPortrait: naturalHeight > naturalWidth * 1.05,
+                            },
+                          }));
+                        }
+                      }}
+                      onError={() => {
+                        setBrokenPhotos((prev) => ({ ...prev, [photo.id]: true }));
+                      }}
+                    />
+                  )}
 
                   {/* Dynamic Watermark Engine Overlay */}
                   {hasWatermark && (
@@ -961,7 +1028,7 @@ export const ClientPortalView: React.FC<ClientPortalViewProps> = ({
                       )}
 
                       {watermarkStyle === 'corner_signature' && (
-                        <div className="absolute bottom-3 right-3 opacity-60 bg-black/60 px-2.5 py-1 text-[9px] font-mono text-white border border-white/20">
+                        <div className="absolute bottom-3 right-3 opacity-60 bg-black/60 px-2.5 py-1 text-[9px] font-mono text-white border border-white/20 rounded">
                           {watermarkTextDisplay}
                         </div>
                       )}
@@ -969,12 +1036,12 @@ export const ClientPortalView: React.FC<ClientPortalViewProps> = ({
                   )}
 
                   {/* Top Action Overlay Badges */}
-                  <div className="absolute top-2.5 inset-x-2.5 flex items-center justify-between z-10">
+                  <div className="absolute top-3 inset-x-3 flex items-center justify-between z-10">
                     {/* Star Favorite Button */}
                     {rolePermissions.canFavorite && (
                       <button
                         onClick={(e) => handleToggleFavorite(photo.id, e)}
-                        className={`p-2 transition-all backdrop-blur-md border ${
+                        className={`p-2 transition-all backdrop-blur-md border rounded-lg ${
                           photo.isFavorite
                             ? 'bg-[#C88E3E] text-white border-[#C88E3E] shadow-md'
                             : 'bg-black/60 text-white/80 hover:text-white border-white/20 hover:border-[#C88E3E]'
@@ -985,10 +1052,16 @@ export const ClientPortalView: React.FC<ClientPortalViewProps> = ({
                       </button>
                     )}
 
-                    {/* Quality badge & Single Download Quick Action */}
+                    {/* Quality badge, Orientation & Single Download Quick Action */}
                     <div className="flex items-center gap-1.5">
+                      {isPortrait && (
+                        <span className="px-2 py-0.5 bg-black/70 backdrop-blur-md border border-[#C88E3E]/40 text-[8px] font-mono text-[#C88E3E] font-semibold uppercase tracking-wider rounded">
+                          Portrait
+                        </span>
+                      )}
+
                       {photo.bitDepth && (
-                        <span className="hidden sm:inline-block px-1.5 py-0.5 bg-black/60 backdrop-blur-md border border-white/20 text-[8px] font-mono text-[#C88E3E] font-semibold">
+                        <span className="hidden sm:inline-block px-1.5 py-0.5 bg-black/60 backdrop-blur-md border border-white/20 text-[8px] font-mono text-[#C88E3E] font-semibold rounded">
                           RAW
                         </span>
                       )}
@@ -996,7 +1069,7 @@ export const ClientPortalView: React.FC<ClientPortalViewProps> = ({
                       {rolePermissions.canDownloadSingle && (
                         <button
                           onClick={(e) => handleDownloadSinglePhoto(photo, e)}
-                          className="p-2 bg-black/60 hover:bg-[#C88E3E] text-white border border-white/20 backdrop-blur-md transition-all"
+                          className="p-2 bg-black/60 hover:bg-[#C88E3E] text-white border border-white/20 backdrop-blur-md rounded-lg transition-all"
                           title="Download High-Res Original"
                         >
                           <Download className="w-3.5 h-3.5" />
@@ -1007,7 +1080,188 @@ export const ClientPortalView: React.FC<ClientPortalViewProps> = ({
                 </div>
 
                 {/* Card Bottom Meta */}
-                <div className="p-3.5 bg-[#FAF7F0] dark:bg-[#1E1B17] border-t border-[#E6DFD3] dark:border-[#2D261E] flex items-center justify-between gap-2 text-xs font-mono">
+                <div className="p-4 bg-[#FAF7F0] dark:bg-[#1E1B17] border-t border-[#E6DFD3] dark:border-[#2D261E] flex items-center justify-between gap-2 text-xs font-mono">
+                  <div className="min-w-0 text-left">
+                    <p className="text-[#1C1917] dark:text-[#F7F3EC] font-serif font-medium truncate">{photo.name}</p>
+                    <p className="text-[10px] text-[#70665A] dark:text-[#A39886] mt-0.5 truncate">
+                      {photo.exif?.cameraModel || photo.originalFileName}
+                    </p>
+                  </div>
+
+                  {photo.comments.length > 0 && (
+                    <span className="px-2 py-0.5 bg-[#C88E3E]/15 text-[#C88E3E] dark:text-[#D49A3D] border border-[#C88E3E]/30 text-[10px] flex items-center gap-1 shrink-0 font-medium rounded">
+                      <MessageSquare className="w-3 h-3" />
+                      {photo.comments.length}
+                    </span>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        /* Uniform Grid with Contain Aspect (No Cropping) */
+        <div
+          className={`grid gap-4 sm:gap-6 ${
+            gridColumns === '2'
+              ? 'grid-cols-1 sm:grid-cols-2'
+              : gridColumns === '4'
+              ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4'
+              : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'
+          }`}
+        >
+          {filteredPhotos.map((photo, index) => {
+            const hasWatermark = activeGallery.isWatermarkActive || !rolePermissions.canViewUnwatermarked;
+            const watermarkStyle = activeGallery.watermarkStyle || 'diagonal_grid';
+            const watermarkTextDisplay = activeGallery.watermarkText || '© SURJO MEDIA — PROOF';
+            const isPortrait = detectedAspectRatios[photo.id]?.isPortrait || photo.height > photo.width;
+
+            return (
+              <div
+                key={photo.id}
+                onClick={() => {
+                  if (isCompareMode) {
+                    if (!comparePhotoA) setComparePhotoA(photo);
+                    else setComparePhotoB(photo);
+                  } else {
+                    setActiveLightboxPhoto(photo);
+                    setLightboxIndex(index);
+                  }
+                }}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  triggerSecurityWarning('Right-click copy protection active. Use official client download controls.');
+                }}
+                className="group relative bg-white dark:bg-[#151311] border border-[#E6DFD3] dark:border-[#2D261E] hover:border-[#C88E3E] dark:hover:border-[#D49A3D] rounded-2xl overflow-hidden cursor-pointer transition-all flex flex-col shadow-sm select-none"
+              >
+                {/* Photo Aspect Container - 4:5 Portrait Frame with object-contain to ensure complete photo is visible */}
+                <div className="relative aspect-[4/5] overflow-hidden bg-[#0C0B0A] flex items-center justify-center">
+                  {brokenPhotos[photo.id] ? (
+                    <div className="w-full h-full flex flex-col items-center justify-center p-6 bg-gradient-to-b from-[#1E1B17] to-[#12100E] text-center space-y-3">
+                      <div className="w-12 h-12 rounded-xl bg-[#C88E3E]/10 border border-[#C88E3E]/30 flex items-center justify-center text-[#C88E3E]">
+                        <Camera className="w-6 h-6" />
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-xs font-serif text-[#F7F3EC]">{photo.name}</p>
+                        <p className="text-[10px] font-mono text-[#A39886]">Lossless Raw Master</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <img
+                      src={photo.thumbnailUrl}
+                      alt={photo.name}
+                      className="w-full h-full object-contain transition-transform duration-700 ease-out group-hover:scale-105 pointer-events-none"
+                      referrerPolicy="no-referrer"
+                      onLoad={(e) => {
+                        const { naturalWidth, naturalHeight } = e.currentTarget;
+                        if (naturalWidth && naturalHeight) {
+                          setDetectedAspectRatios((prev) => ({
+                            ...prev,
+                            [photo.id]: {
+                              width: naturalWidth,
+                              height: naturalHeight,
+                              isPortrait: naturalHeight > naturalWidth * 1.05,
+                            },
+                          }));
+                        }
+                      }}
+                      onError={() => {
+                        setBrokenPhotos((prev) => ({ ...prev, [photo.id]: true }));
+                      }}
+                    />
+                  )}
+
+                  {/* Dynamic Watermark Engine Overlay */}
+                  {hasWatermark && (
+                    <div className="absolute inset-0 pointer-events-none select-none flex items-center justify-center overflow-hidden">
+                      {watermarkStyle === 'diagonal_grid' && (
+                        <div className="w-full h-full opacity-35 flex flex-col justify-around rotate-[-18deg] scale-125">
+                          <div className="flex justify-around whitespace-nowrap text-[11px] font-mono tracking-[0.3em] text-white">
+                            <span>{watermarkTextDisplay}</span>
+                            <span>{watermarkTextDisplay}</span>
+                          </div>
+                          <div className="flex justify-around whitespace-nowrap text-[11px] font-mono tracking-[0.3em] text-white">
+                            <span>{watermarkTextDisplay}</span>
+                            <span>{watermarkTextDisplay}</span>
+                          </div>
+                          <div className="flex justify-around whitespace-nowrap text-[11px] font-mono tracking-[0.3em] text-white">
+                            <span>{watermarkTextDisplay}</span>
+                            <span>{watermarkTextDisplay}</span>
+                          </div>
+                        </div>
+                      )}
+
+                      {watermarkStyle === 'center_crest' && (
+                        <div className="opacity-45 p-6 border-2 border-white/40 flex flex-col items-center justify-center rotate-[-8deg] bg-black/20 backdrop-blur-[1px]">
+                          <Shield className="w-8 h-8 text-white mb-1" />
+                          <span className="text-xs uppercase font-mono tracking-[0.25em] text-white font-bold text-center">
+                            {watermarkTextDisplay}
+                          </span>
+                        </div>
+                      )}
+
+                      {watermarkStyle === 'forensic_client_stamp' && (
+                        <div className="w-full h-full opacity-30 flex flex-col justify-between p-4 rotate-[-12deg] scale-110 text-[9px] font-mono text-white">
+                          <div className="truncate">
+                            {`CONFIDENTIAL PROOF // ${clientAuthorName || 'CLIENT VAULT'} // ${activeGallery.id}`}
+                          </div>
+                          <div className="text-center font-bold tracking-widest">{watermarkTextDisplay}</div>
+                          <div className="truncate text-right">ENCRYPTED MASTER TOKEN: SHA-256 VERIFIED</div>
+                        </div>
+                      )}
+
+                      {watermarkStyle === 'corner_signature' && (
+                        <div className="absolute bottom-3 right-3 opacity-60 bg-black/60 px-2.5 py-1 text-[9px] font-mono text-white border border-white/20 rounded">
+                          {watermarkTextDisplay}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Top Action Overlay Badges */}
+                  <div className="absolute top-2.5 inset-x-2.5 flex items-center justify-between z-10">
+                    {rolePermissions.canFavorite && (
+                      <button
+                        onClick={(e) => handleToggleFavorite(photo.id, e)}
+                        className={`p-2 transition-all backdrop-blur-md border rounded-lg ${
+                          photo.isFavorite
+                            ? 'bg-[#C88E3E] text-white border-[#C88E3E] shadow-md'
+                            : 'bg-black/60 text-white/80 hover:text-white border-white/20 hover:border-[#C88E3E]'
+                        }`}
+                        title="Star as official pick"
+                      >
+                        <Star className={`w-3.5 h-3.5 ${photo.isFavorite ? 'fill-current' : ''}`} />
+                      </button>
+                    )}
+
+                    <div className="flex items-center gap-1.5">
+                      {isPortrait && (
+                        <span className="px-2 py-0.5 bg-black/70 backdrop-blur-md border border-[#C88E3E]/40 text-[8px] font-mono text-[#C88E3E] font-semibold uppercase tracking-wider rounded">
+                          Portrait
+                        </span>
+                      )}
+
+                      {photo.bitDepth && (
+                        <span className="hidden sm:inline-block px-1.5 py-0.5 bg-black/60 backdrop-blur-md border border-white/20 text-[8px] font-mono text-[#C88E3E] font-semibold rounded">
+                          RAW
+                        </span>
+                      )}
+
+                      {rolePermissions.canDownloadSingle && (
+                        <button
+                          onClick={(e) => handleDownloadSinglePhoto(photo, e)}
+                          className="p-2 bg-black/60 hover:bg-[#C88E3E] text-white border border-white/20 backdrop-blur-md rounded-lg transition-all"
+                          title="Download High-Res Original"
+                        >
+                          <Download className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Card Bottom Meta */}
+                <div className="p-4 bg-[#FAF7F0] dark:bg-[#1E1B17] border-t border-[#E6DFD3] dark:border-[#2D261E] flex items-center justify-between gap-2 text-xs font-mono">
                   <div className="min-w-0 text-left">
                     <p className="text-[#1C1917] dark:text-[#F7F3EC] font-serif font-normal truncate">{photo.name}</p>
                     <p className="text-[10px] text-[#70665A] dark:text-[#A39886] mt-0.5 truncate">
@@ -1016,7 +1270,7 @@ export const ClientPortalView: React.FC<ClientPortalViewProps> = ({
                   </div>
 
                   {photo.comments.length > 0 && (
-                    <span className="px-2 py-0.5 bg-[#C88E3E]/15 text-[#C88E3E] dark:text-[#D49A3D] border border-[#C88E3E]/30 text-[10px] flex items-center gap-1 shrink-0 font-medium">
+                    <span className="px-2 py-0.5 bg-[#C88E3E]/15 text-[#C88E3E] dark:text-[#D49A3D] border border-[#C88E3E]/30 text-[10px] flex items-center gap-1 shrink-0 font-medium rounded">
                       <MessageSquare className="w-3 h-3" />
                       {photo.comments.length}
                     </span>
@@ -1032,13 +1286,24 @@ export const ClientPortalView: React.FC<ClientPortalViewProps> = ({
       {activeLightboxPhoto && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/95 backdrop-blur-xl animate-fade-in select-none"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              if (showExifDrawer) {
+                setShowExifDrawer(false);
+              } else {
+                setActiveLightboxPhoto(null);
+                setIsZoomed(false);
+                setLoupeMode('off');
+              }
+            }
+          }}
           onContextMenu={(e) => {
             e.preventDefault();
             triggerSecurityWarning('Image context saving is restricted by Studio Master Fortress Security.');
           }}
         >
           {/* Lightbox Top Control Bar */}
-          <div className="absolute top-0 inset-x-0 p-4 sm:p-6 flex items-center justify-between bg-gradient-to-b from-black/90 to-transparent z-30">
+          <div className="absolute top-0 inset-x-0 p-3 sm:p-4 md:p-5 flex items-center justify-between bg-black/90 border-b border-white/10 backdrop-blur-md z-50">
             <div className="flex items-center gap-3">
               <span className="text-[10px] font-mono text-[#C88E3E] uppercase tracking-widest font-semibold">
                 {lightboxIndex + 1} / {filteredPhotos.length}
@@ -1054,9 +1319,9 @@ export const ClientPortalView: React.FC<ClientPortalViewProps> = ({
               )}
             </div>
 
-            <div className="flex items-center gap-2 sm:gap-3">
+            <div className="flex items-center gap-1.5 sm:gap-2.5">
               {/* Focus Loupe Mode Switcher */}
-              <div className="hidden sm:flex items-center bg-black/60 border border-white/20 p-0.5 text-[10px] font-mono text-white">
+              <div className="hidden lg:flex items-center bg-black/60 border border-white/20 p-0.5 text-[10px] font-mono text-white">
                 <span className="px-2 py-1 text-white/50 flex items-center gap-1">
                   <Scan className="w-3 h-3 text-[#C88E3E]" /> Loupe:
                 </span>
@@ -1080,7 +1345,7 @@ export const ClientPortalView: React.FC<ClientPortalViewProps> = ({
               {activeLightboxPhoto.rawComparisonUrl && (
                 <button
                   onClick={() => setIsSplitRetouchMode(!isSplitRetouchMode)}
-                  className={`px-3 py-1.5 text-xs font-mono uppercase tracking-wider border transition-all flex items-center gap-1.5 ${
+                  className={`px-2.5 py-1.5 text-xs font-mono uppercase tracking-wider border transition-all flex items-center gap-1.5 ${
                     isSplitRetouchMode
                       ? 'bg-[#C88E3E] text-white border-[#C88E3E]'
                       : 'bg-black/60 border-white/20 text-white hover:border-[#C88E3E]'
@@ -1095,7 +1360,7 @@ export const ClientPortalView: React.FC<ClientPortalViewProps> = ({
               {rolePermissions.canFavorite && (
                 <button
                   onClick={() => handleToggleFavorite(activeLightboxPhoto.id)}
-                  className={`px-3 py-1.5 text-xs font-mono uppercase tracking-wider border transition-all flex items-center gap-1.5 ${
+                  className={`px-2.5 py-1.5 text-xs font-mono uppercase tracking-wider border transition-all flex items-center gap-1.5 ${
                     activeLightboxPhoto.isFavorite
                       ? 'bg-[#C88E3E] text-white border-[#C88E3E]'
                       : 'bg-black/60 border-white/20 text-white hover:border-[#C88E3E]'
@@ -1109,33 +1374,41 @@ export const ClientPortalView: React.FC<ClientPortalViewProps> = ({
               {rolePermissions.canDownloadSingle && (
                 <button
                   onClick={() => handleDownloadSinglePhoto(activeLightboxPhoto)}
-                  className="p-2 bg-black/60 border border-white/20 hover:border-[#C88E3E] text-white transition-all"
+                  className="p-1.5 px-2 bg-black/60 border border-white/20 hover:border-[#C88E3E] text-white transition-all flex items-center gap-1"
                   title="Download Lossless Master File"
                 >
                   <Download className="w-4 h-4" />
+                  <span className="hidden md:inline text-xs font-mono uppercase">Download</span>
                 </button>
               )}
 
+              {/* Toggle Info / Sidebar button */}
               <button
                 onClick={() => setShowExifDrawer(!showExifDrawer)}
-                className={`p-2 border transition-all ${
-                  showExifDrawer ? 'bg-[#C88E3E] text-white border-[#C88E3E]' : 'bg-black/60 border-white/20 text-white'
+                className={`px-2.5 py-1.5 border transition-all flex items-center gap-1.5 text-xs font-mono uppercase tracking-wider ${
+                  showExifDrawer
+                    ? 'bg-[#C88E3E] text-white border-[#C88E3E] font-semibold'
+                    : 'bg-black/60 border-white/25 text-white hover:border-[#C88E3E]'
                 }`}
-                title="View Camera EXIF & Optics"
+                title={showExifDrawer ? "Hide Details Sidebar" : "Show Details Sidebar"}
               >
                 <Info className="w-4 h-4" />
+                <span className="hidden sm:inline">{showExifDrawer ? 'Hide Details' : 'Details'}</span>
               </button>
 
+              {/* High-Contrast Unmistakable Close Image Button */}
               <button
                 onClick={() => {
                   setActiveLightboxPhoto(null);
                   setIsZoomed(false);
                   setLoupeMode('off');
+                  setShowExifDrawer(false);
                 }}
-                className="p-2 text-white/50 hover:text-white"
-                title="Close Lightbox (Esc)"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white border border-rose-500 font-mono text-xs uppercase tracking-wider font-semibold transition-all shadow-md ml-1"
+                title="Close Image Viewer (Esc)"
               >
-                <X className="w-6 h-6" />
+                <X className="w-4 h-4 stroke-[2.5]" />
+                <span>Close</span>
               </button>
             </div>
           </div>
@@ -1298,77 +1571,110 @@ export const ClientPortalView: React.FC<ClientPortalViewProps> = ({
 
           {/* Side EXIF & Proofing Drawer */}
           {showExifDrawer && (
-            <div className="absolute right-0 top-0 bottom-0 w-80 bg-[#151311]/98 border-l border-white/15 p-6 pt-20 overflow-y-auto space-y-6 z-30 animate-fade-in text-left shadow-2xl">
-              <div className="space-y-1 pb-3 border-b border-white/10">
-                <h4 className="text-base font-serif text-white">{activeLightboxPhoto.name}</h4>
-                <p className="text-[10px] font-mono text-[#C88E3E]">{activeLightboxPhoto.originalFileName}</p>
-                <div className="flex items-center gap-2 pt-1">
-                  <span className="px-2 py-0.5 text-[8px] font-mono bg-emerald-950/80 text-emerald-300 border border-emerald-800 uppercase font-semibold">
-                    Master Verified
-                  </span>
-                  <span className="text-[10px] font-mono text-white/50">
-                    {(activeLightboxPhoto.fileSizeBytes / (1024 * 1024)).toFixed(1)} MB
+            <div className="absolute right-0 top-0 bottom-0 w-84 max-w-[90vw] bg-[#141210] border-l border-white/15 z-40 animate-fade-in text-left shadow-2xl flex flex-col pt-16 sm:pt-20">
+              {/* Dedicated Sticky/Top Header with Close (X) Button */}
+              <div className="p-4 border-b border-white/15 flex items-center justify-between bg-[#1C1916] shrink-0">
+                <div className="flex items-center gap-2">
+                  <Info className="w-4 h-4 text-[#C88E3E]" />
+                  <span className="text-xs font-mono uppercase tracking-widest text-white font-semibold">
+                    Photo Details & Notes
                   </span>
                 </div>
+                <button
+                  onClick={() => setShowExifDrawer(false)}
+                  className="px-2.5 py-1 bg-white/10 hover:bg-rose-600 text-white border border-white/20 hover:border-white/40 transition-all flex items-center gap-1.5 text-xs font-mono shadow-sm cursor-pointer"
+                  title="Close Details Panel (Esc)"
+                  aria-label="Close sidebar"
+                >
+                  <X className="w-4 h-4 text-white" />
+                  <span className="text-[10px] uppercase font-bold tracking-wider">Close</span>
+                </button>
               </div>
 
-              {/* Optical EXIF Details */}
-              {activeLightboxPhoto.exif && (
-                <div className="space-y-2 text-xs font-mono text-white/80">
-                  <span className="text-[10px] uppercase tracking-widest text-[#C88E3E] block font-semibold">
-                    Optical Sensor & Capture
-                  </span>
-                  <div className="p-3 bg-[#1C1916] border border-white/10 space-y-1.5 text-[11px]">
-                    {activeLightboxPhoto.exif.cameraModel && <p>Body: <span className="text-white">{activeLightboxPhoto.exif.cameraModel}</span></p>}
-                    {activeLightboxPhoto.exif.lens && <p>Lens: <span className="text-white">{activeLightboxPhoto.exif.lens}</span></p>}
-                    {activeLightboxPhoto.exif.aperture && <p>Aperture: <span className="text-[#C88E3E] font-semibold">{activeLightboxPhoto.exif.aperture}</span></p>}
-                    {activeLightboxPhoto.exif.shutterSpeed && <p>Shutter: <span className="text-white">{activeLightboxPhoto.exif.shutterSpeed}</span></p>}
-                    {activeLightboxPhoto.exif.iso && <p>ISO: <span className="text-white">{activeLightboxPhoto.exif.iso}</span></p>}
-                    <p>Color Space: <span className="text-emerald-400 font-semibold">{activeLightboxPhoto.colorSpace || 'P3 Wide Gamut'}</span></p>
-                    <p>Bit Depth: <span className="text-white/90">{activeLightboxPhoto.bitDepth || '14-bit Uncompressed RAW'}</span></p>
+              {/* Scrollable Drawer Content */}
+              <div className="p-5 overflow-y-auto space-y-6 flex-1">
+                <div className="space-y-1 pb-3 border-b border-white/10">
+                  <h4 className="text-base font-serif text-white">{activeLightboxPhoto.name}</h4>
+                  <p className="text-[10px] font-mono text-[#C88E3E]">{activeLightboxPhoto.originalFileName}</p>
+                  <div className="flex items-center gap-2 pt-1">
+                    <span className="px-2 py-0.5 text-[8px] font-mono bg-emerald-950/80 text-emerald-300 border border-emerald-800 uppercase font-semibold">
+                      Master Verified
+                    </span>
+                    <span className="text-[10px] font-mono text-white/50">
+                      {(activeLightboxPhoto.fileSizeBytes / (1024 * 1024)).toFixed(1)} MB
+                    </span>
                   </div>
                 </div>
-              )}
 
-              {/* Proofing Notes section */}
-              {rolePermissions.canAddNotes && (
-                <div className="space-y-3">
-                  <span className="text-[10px] uppercase tracking-widest text-[#C88E3E] block font-semibold">
-                    Retouching Notes
-                  </span>
-                  <div className="space-y-2 max-h-48 overflow-y-auto">
-                    {activeLightboxPhoto.comments.length === 0 ? (
-                      <p className="text-[11px] font-mono text-white/40 italic">No notes yet on this frame.</p>
-                    ) : (
-                      activeLightboxPhoto.comments.map((c) => (
-                        <div key={c.id} className="p-2.5 bg-[#1C1916] border border-white/10 text-xs">
-                          <p className="font-semibold text-[#C88E3E] text-[11px]">{c.author}:</p>
-                          <p className="text-white/80 text-[11px] mt-0.5">{c.text}</p>
-                        </div>
-                      ))
-                    )}
+                {/* Optical EXIF Details */}
+                {activeLightboxPhoto.exif && (
+                  <div className="space-y-2 text-xs font-mono text-white/80">
+                    <span className="text-[10px] uppercase tracking-widest text-[#C88E3E] block font-semibold">
+                      Optical Sensor & Capture
+                    </span>
+                    <div className="p-3 bg-[#1C1916] border border-white/10 space-y-1.5 text-[11px]">
+                      {activeLightboxPhoto.exif.cameraModel && <p>Body: <span className="text-white">{activeLightboxPhoto.exif.cameraModel}</span></p>}
+                      {activeLightboxPhoto.exif.lens && <p>Lens: <span className="text-white">{activeLightboxPhoto.exif.lens}</span></p>}
+                      {activeLightboxPhoto.exif.aperture && <p>Aperture: <span className="text-[#C88E3E] font-semibold">{activeLightboxPhoto.exif.aperture}</span></p>}
+                      {activeLightboxPhoto.exif.shutterSpeed && <p>Shutter: <span className="text-white">{activeLightboxPhoto.exif.shutterSpeed}</span></p>}
+                      {activeLightboxPhoto.exif.iso && <p>ISO: <span className="text-white">{activeLightboxPhoto.exif.iso}</span></p>}
+                      <p>Color Space: <span className="text-emerald-400 font-semibold">{activeLightboxPhoto.colorSpace || 'P3 Wide Gamut'}</span></p>
+                      <p>Bit Depth: <span className="text-white/90">{activeLightboxPhoto.bitDepth || '14-bit Uncompressed RAW'}</span></p>
+                    </div>
                   </div>
+                )}
 
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      placeholder="Leave retouch note..."
-                      value={newCommentText}
-                      onChange={(e) => setNewCommentText(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') handleAddComment(activeLightboxPhoto.id);
-                      }}
-                      className="flex-1 bg-[#1C1916] border border-white/15 px-3 py-2 text-xs font-mono text-white placeholder-white/40 focus:outline-none focus:border-[#C88E3E]"
-                    />
-                    <button
-                      onClick={() => handleAddComment(activeLightboxPhoto.id)}
-                      className="px-3 py-2 bg-[#C88E3E] text-white text-xs font-mono hover:bg-[#B77D2F]"
-                    >
-                      <Send className="w-3.5 h-3.5" />
-                    </button>
+                {/* Proofing Notes section */}
+                {rolePermissions.canAddNotes && (
+                  <div className="space-y-3">
+                    <span className="text-[10px] uppercase tracking-widest text-[#C88E3E] block font-semibold">
+                      Retouching Notes
+                    </span>
+                    <div className="space-y-2 max-h-48 overflow-y-auto">
+                      {activeLightboxPhoto.comments.length === 0 ? (
+                        <p className="text-[11px] font-mono text-white/40 italic">No notes yet on this frame.</p>
+                      ) : (
+                        activeLightboxPhoto.comments.map((c) => (
+                          <div key={c.id} className="p-2.5 bg-[#1C1916] border border-white/10 text-xs">
+                            <p className="font-semibold text-[#C88E3E] text-[11px]">{c.author}:</p>
+                            <p className="text-white/80 text-[11px] mt-0.5">{c.text}</p>
+                          </div>
+                        ))
+                      )}
+                    </div>
+
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        placeholder="Leave retouch note..."
+                        value={newCommentText}
+                        onChange={(e) => setNewCommentText(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleAddComment(activeLightboxPhoto.id);
+                        }}
+                        className="flex-1 bg-[#1C1916] border border-white/15 px-3 py-2 text-xs font-mono text-white placeholder-white/40 focus:outline-none focus:border-[#C88E3E]"
+                      />
+                      <button
+                        onClick={() => handleAddComment(activeLightboxPhoto.id)}
+                        className="px-3 py-2 bg-[#C88E3E] text-white text-xs font-mono hover:bg-[#B77D2F]"
+                      >
+                        <Send className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
+                )}
+
+                {/* Dedicated Bottom Close Button */}
+                <div className="pt-2 border-t border-white/10">
+                  <button
+                    onClick={() => setShowExifDrawer(false)}
+                    className="w-full py-2.5 bg-white/10 hover:bg-white/20 text-white text-xs font-mono uppercase tracking-widest border border-white/20 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <X className="w-4 h-4 text-white" />
+                    <span>Close Details Panel</span>
+                  </button>
                 </div>
-              )}
+              </div>
             </div>
           )}
         </div>

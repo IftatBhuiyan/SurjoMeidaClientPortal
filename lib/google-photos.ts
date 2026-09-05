@@ -536,14 +536,14 @@ export function convertGooglePhotosMediaToPhotoItem(item: GooglePhotosMediaItem)
     },
   };
 
-  // Google Photos high-res uncompressed URL parameter: '=d' triggers original download, '=w3840-h2160' gives 4K preview
+  // Google Photos high-res uncompressed URL parameter: '=s0' provides original resolution display in portal, '=d' triggers original download
   const isUnsplashMock = item.baseUrl.includes('unsplash.com');
   const thumbnailUrl = isUnsplashMock
     ? `${item.baseUrl}?auto=format&fit=crop&w=1200&q=90`
-    : `${item.baseUrl}=w1200-h800`;
+    : `${item.baseUrl}=w1600-h1200`;
   const highResUrl = isUnsplashMock
     ? `${item.baseUrl}?auto=format&fit=crop&w=3840&q=100`
-    : `${item.baseUrl}=d`;
+    : `${item.baseUrl}=s0`;
 
   // Raw Comparison URL for A/B retouch demonstration
   const rawComparisonUrl = isUnsplashMock

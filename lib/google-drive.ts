@@ -361,28 +361,47 @@ export async function triggerLosslessDownload(
   accessToken?: string | null
 ): Promise<void> {
   try {
+    let token = accessToken;
+    if (!token && typeof window !== 'undefined') {
+      try {
+        token = sessionStorage.getItem('surjo_google_access_token');
+      } catch {}
+    }
+
     const rawUrl = photo.highResUrl || photo.thumbnailUrl;
     const fileName = photo.originalFileName || `${photo.name}.jpg`;
     let downloadUrl = rawUrl;
 
-    // If Google Drive token and file ID are available, fetch original uncompressed blob
-    if (accessToken && photo.driveFileId) {
+    // 1. If Google Drive token and file ID are available, fetch original uncompressed blob directly
+    if (token && photo.driveFileId) {
       try {
-        const blob = await downloadDriveFileBlob(accessToken, photo.driveFileId);
+        const blob = await downloadDriveFileBlob(token, photo.driveFileId);
         downloadUrl = URL.createObjectURL(blob);
       } catch (err) {
         console.warn('Direct drive blob download failed, falling back to proxy:', err);
       }
     }
 
-    // If local server media, attach download=true
+    // 2. If it's a Google Photos URL, ensure original master bytes (=d) parameter is used
+    if (downloadUrl.includes('googleusercontent.com')) {
+      downloadUrl = downloadUrl.replace(/=[^/]*$/, '') + '=d';
+    }
+
+    // 3. If local server media, attach download=true for lossless master buffer
     if (downloadUrl.startsWith('/api/media/')) {
       downloadUrl = downloadUrl.includes('?')
         ? `${downloadUrl}&download=true`
         : `${downloadUrl}?download=true`;
     } else if (downloadUrl.startsWith('http://') || downloadUrl.startsWith('https://')) {
-      // Use server download proxy to bypass CORS and force native browser attachment download
-      downloadUrl = `/api/download?url=${encodeURIComponent(downloadUrl)}&filename=${encodeURIComponent(fileName)}`;
+      // Use server download proxy to bypass CORS, attach token & fileId if available, and force native browser attachment download
+      const params = new URLSearchParams({
+        url: downloadUrl,
+        filename: fileName,
+      });
+      if (token) params.set('token', token);
+      if (photo.driveFileId) params.set('fileId', photo.driveFileId);
+
+      downloadUrl = `/api/download?${params.toString()}`;
     }
 
     const a = document.createElement('a');
@@ -406,6 +425,13 @@ export async function createLosslessZip(
   accessToken?: string | null,
   onProgress?: (percent: number, currentFile: string) => void
 ): Promise<Blob> {
+  let token = accessToken;
+  if (!token && typeof window !== 'undefined') {
+    try {
+      token = sessionStorage.getItem('surjo_google_access_token');
+    } catch {}
+  }
+
   const zip = new JSZip();
   const folder = zip.folder(zipName) || zip;
 
@@ -417,16 +443,23 @@ export async function createLosslessZip(
 
     try {
       let fileBlob: Blob | null = null;
-      const targetUrl = photo.highResUrl || photo.thumbnailUrl;
+      let targetUrl = photo.highResUrl || photo.thumbnailUrl;
 
-      if (accessToken && photo.driveFileId) {
+      // Ensure Google Photos uses =d for the uncompressed original master file
+      if (targetUrl.includes('googleusercontent.com')) {
+        targetUrl = targetUrl.replace(/=[^/]*$/, '') + '=d';
+      }
+
+      // If Google Drive token and fileId are available, fetch uncompressed master directly
+      if (token && photo.driveFileId) {
         try {
-          fileBlob = await downloadDriveFileBlob(accessToken, photo.driveFileId);
+          fileBlob = await downloadDriveFileBlob(token, photo.driveFileId);
         } catch {
           fileBlob = null;
         }
       }
 
+      // Direct fetch if local server media or accessible URL
       if (!fileBlob) {
         try {
           const directRes = await fetch(targetUrl);
@@ -441,7 +474,14 @@ export async function createLosslessZip(
       // Proxy fallback for CORS-restricted external URLs
       if (!fileBlob && (targetUrl.startsWith('http://') || targetUrl.startsWith('https://'))) {
         try {
-          const proxyRes = await fetch(`/api/download?url=${encodeURIComponent(targetUrl)}&filename=${encodeURIComponent(photo.originalFileName || photo.name)}`);
+          const params = new URLSearchParams({
+            url: targetUrl,
+            filename: photo.originalFileName || photo.name,
+          });
+          if (token) params.set('token', token);
+          if (photo.driveFileId) params.set('fileId', photo.driveFileId);
+
+          const proxyRes = await fetch(`/api/download?${params.toString()}`);
           if (proxyRes.ok) {
             fileBlob = await proxyRes.blob();
           }

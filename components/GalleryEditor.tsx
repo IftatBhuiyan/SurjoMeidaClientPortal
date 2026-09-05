@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { ClientGallery, PhotoItem, GalleryAccessKey, SecurityAuditLog, UserRole, ROLE_DEFINITIONS } from '@/lib/types';
 import { uploadPhotoToDrive, createLosslessZip } from '@/lib/google-drive';
 import { ConfirmDialog } from './ConfirmDialog';
@@ -37,6 +37,9 @@ import {
   Clock,
   ExternalLink,
   Film,
+  X,
+  Layers,
+  Grid,
 } from 'lucide-react';
 
 interface GalleryEditorProps {
@@ -60,6 +63,8 @@ export const GalleryEditor: React.FC<GalleryEditorProps> = ({
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<{ [key: string]: number }>({});
   const [activeTab, setActiveTab] = useState<'photos' | 'rbac_keys' | 'audit_trail' | 'settings'>('photos');
+  const [layoutMode, setLayoutMode] = useState<'bento' | 'grid'>('bento');
+  const [brokenPhotos, setBrokenPhotos] = useState<Record<string, boolean>>({});
   const [filterMode, setFilterMode] = useState<'all' | 'favorites' | 'retouch' | 'comments'>('all');
   const [activePhoto, setActivePhoto] = useState<PhotoItem | null>(null);
   const [photoToDelete, setPhotoToDelete] = useState<PhotoItem | null>(null);
@@ -67,6 +72,17 @@ export const GalleryEditor: React.FC<GalleryEditorProps> = ({
   const [showGooglePhotosModal, setShowGooglePhotosModal] = useState(false);
   const [showGoogleDriveModal, setShowGoogleDriveModal] = useState(false);
   const [copiedKeyId, setCopiedKeyId] = useState<string | null>(null);
+
+  // Keyboard navigation / close on Escape for activePhoto
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && activePhoto) {
+        setActivePhoto(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activePhoto]);
 
   // New RBAC Key form
   const [newKeyRole, setNewKeyRole] = useState<UserRole>('guest_viewer');
@@ -164,16 +180,16 @@ export const GalleryEditor: React.FC<GalleryEditorProps> = ({
             source: 'local_raw',
             thumbnailUrl: mediaUrl,
             highResUrl: mediaUrl,
-            fileSizeBytes: file.size,
-            mimeType: file.type || 'image/jpeg',
-            width: 4000,
-            height: 3000,
-            exif: {
-              cameraMake: 'Master Pro Camera',
-              cameraModel: 'Lossless Sensor RAW',
-              aperture: 'f/1.4',
-              shutterSpeed: '1/1000s',
-              iso: 'ISO 100',
+            fileSizeBytes: savedFile?.size || file.size,
+            mimeType: file.type || savedFile?.mimeType || 'image/jpeg',
+            width: savedFile?.width || 4095,
+            height: savedFile?.height || 6142,
+            exif: savedFile?.exif || {
+              cameraMake: 'Canon',
+              cameraModel: 'Canon EOS R50',
+              aperture: 'f/2.8',
+              shutterSpeed: '1/200s',
+              iso: 'ISO 400',
               capturedAt: new Date().toISOString(),
             },
             comments: [],
@@ -195,14 +211,14 @@ export const GalleryEditor: React.FC<GalleryEditorProps> = ({
           highResUrl: objectUrl,
           fileSizeBytes: file.size,
           mimeType: file.type || 'image/jpeg',
-          width: 4000,
-          height: 3000,
+          width: 4095,
+          height: 6142,
           exif: {
-            cameraMake: 'Master Pro Camera',
-            cameraModel: 'Lossless Sensor RAW',
-            aperture: 'f/1.4',
-            shutterSpeed: '1/1000s',
-            iso: 'ISO 100',
+            cameraMake: 'Canon',
+            cameraModel: 'Canon EOS R50',
+            aperture: 'f/2.8',
+            shutterSpeed: '1/200s',
+            iso: 'ISO 400',
             capturedAt: new Date().toISOString(),
           },
           comments: [],
@@ -665,36 +681,72 @@ export const GalleryEditor: React.FC<GalleryEditorProps> = ({
               </button>
             </div>
 
-            <p className="text-xs font-mono text-[#70665A] dark:text-[#A39886]">
-              Showing {filteredPhotos.length} of {gallery.photos.length} media items
-            </p>
+            <div className="flex flex-wrap items-center gap-3">
+              <p className="text-xs font-mono text-[#70665A] dark:text-[#A39886]">
+                Showing {filteredPhotos.length} of {gallery.photos.length} media items
+              </p>
+              <div className="flex items-center bg-white dark:bg-[#151311] p-0.5 border border-[#E6DFD3] dark:border-[#2D261E] text-xs font-mono shadow-sm rounded-lg">
+                <button
+                  onClick={() => setLayoutMode('bento')}
+                  className={`px-2.5 py-1 flex items-center gap-1.5 transition-all rounded-md ${
+                    layoutMode === 'bento'
+                      ? 'bg-[#C88E3E] text-white font-medium shadow-sm'
+                      : 'text-[#70665A] dark:text-[#A39886] hover:text-[#1C1917] dark:hover:text-[#F7F3EC]'
+                  }`}
+                  title="Bento Box style: Preserves full portrait & landscape aspect ratios dynamically"
+                >
+                  <Layers className="w-3 h-3" />
+                  <span>Bento Box</span>
+                </button>
+                <button
+                  onClick={() => setLayoutMode('grid')}
+                  className={`px-2.5 py-1 flex items-center gap-1.5 transition-all rounded-md ${
+                    layoutMode === 'grid'
+                      ? 'bg-[#C88E3E] text-white font-medium shadow-sm'
+                      : 'text-[#70665A] dark:text-[#A39886] hover:text-[#1C1917] dark:hover:text-[#F7F3EC]'
+                  }`}
+                  title="Uniform grid view"
+                >
+                  <Grid className="w-3 h-3" />
+                  <span>Uniform</span>
+                </button>
+              </div>
+            </div>
           </div>
 
           {/* Photos Grid */}
           {filteredPhotos.length === 0 ? (
-            <div className="bg-white dark:bg-[#151311] border border-[#E6DFD3] dark:border-[#2D261E] p-16 text-center space-y-3 shadow-sm">
+            <div className="bg-white dark:bg-[#151311] border border-[#E6DFD3] dark:border-[#2D261E] p-16 text-center space-y-3 shadow-sm rounded-2xl">
               <HardDrive className="w-10 h-10 text-[#C88E3E]/40 mx-auto" />
               <h4 className="text-base font-serif text-[#1C1917] dark:text-[#F7F3EC]">No media items match this filter</h4>
               <p className="text-xs text-[#70665A] dark:text-[#A39886] font-mono">
                 Click &ldquo;Google Drive Ingest&rdquo; or drag files to add master shots to this vault.
               </p>
             </div>
-          ) : (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          ) : layoutMode === 'bento' ? (
+            <div className="columns-2 md:columns-3 lg:columns-4 gap-4 space-y-4">
               {filteredPhotos.map((photo) => {
                 const isVideo = photo.mediaType === 'video';
                 return (
                   <div
                     key={photo.id}
                     onClick={() => setActivePhoto(photo)}
-                    className="group relative aspect-[4/3] bg-[#111] border border-[#E6DFD3] dark:border-[#2D261E] hover:border-[#C88E3E] dark:hover:border-[#D49A3D] overflow-hidden cursor-pointer transition-all shadow-sm"
+                    className="break-inside-avoid mb-4 group relative bg-[#111] border border-[#E6DFD3] dark:border-[#2D261E] hover:border-[#C88E3E] dark:hover:border-[#D49A3D] rounded-xl overflow-hidden cursor-pointer transition-all shadow-sm"
                   >
-                    <img
-                      src={photo.thumbnailUrl}
-                      alt={photo.name}
-                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                      referrerPolicy="no-referrer"
-                    />
+                    {brokenPhotos[photo.id] ? (
+                      <div className="w-full aspect-[3/4] flex flex-col items-center justify-center p-4 bg-[#181614] text-center space-y-2">
+                        <HardDrive className="w-6 h-6 text-[#C88E3E]" />
+                        <span className="text-[10px] font-mono text-white/70 truncate max-w-full">{photo.name}</span>
+                      </div>
+                    ) : (
+                      <img
+                        src={photo.thumbnailUrl}
+                        alt={photo.name}
+                        className="w-full h-auto block object-cover transition-transform duration-500 group-hover:scale-[1.02]"
+                        referrerPolicy="no-referrer"
+                        onError={() => setBrokenPhotos((prev) => ({ ...prev, [photo.id]: true }))}
+                      />
+                    )}
 
                     {/* Video Center Play Marker */}
                     {isVideo && (
@@ -708,12 +760,12 @@ export const GalleryEditor: React.FC<GalleryEditorProps> = ({
                     {/* Overlay Badges */}
                     <div className="absolute top-2 left-2 flex items-center gap-1 z-10">
                       {photo.isFavorite && (
-                        <span className="p-1 bg-[#C88E3E] text-white shadow-sm">
+                        <span className="p-1 bg-[#C88E3E] text-white shadow-sm rounded">
                           <Star className="w-3.5 h-3.5 fill-current" />
                         </span>
                       )}
                       {photo.comments.length > 0 && (
-                        <span className="px-1.5 py-0.5 bg-black/75 border border-white/20 text-[9px] font-mono text-white flex items-center gap-1">
+                        <span className="px-1.5 py-0.5 bg-black/75 border border-white/20 text-[9px] font-mono text-white flex items-center gap-1 rounded">
                           <MessageSquare className="w-3 h-3 text-[#C88E3E]" />
                           {photo.comments.length}
                         </span>
@@ -722,17 +774,96 @@ export const GalleryEditor: React.FC<GalleryEditorProps> = ({
 
                     <div className="absolute top-2 right-2 z-10 flex items-center gap-1">
                       {photo.source === 'google_drive' && (
-                        <span className="px-1.5 py-0.5 bg-black/80 border border-[#C88E3E]/40 text-[8px] font-mono text-[#C88E3E] uppercase font-semibold">
+                        <span className="px-1.5 py-0.5 bg-black/80 border border-[#C88E3E]/40 text-[8px] font-mono text-[#C88E3E] uppercase font-semibold rounded">
                           G-Drive
                         </span>
                       )}
                       {photo.source === 'google_photos' && (
-                        <span className="px-1.5 py-0.5 bg-black/80 border border-[#C88E3E]/40 text-[8px] font-mono text-[#C88E3E] uppercase font-semibold">
+                        <span className="px-1.5 py-0.5 bg-black/80 border border-[#C88E3E]/40 text-[8px] font-mono text-[#C88E3E] uppercase font-semibold rounded">
                           G-Photos
                         </span>
                       )}
                       {isVideo && (
-                        <span className="px-1.5 py-0.5 bg-rose-700 text-white text-[8px] font-mono uppercase font-bold">
+                        <span className="px-1.5 py-0.5 bg-rose-700 text-white text-[8px] font-mono uppercase font-bold rounded">
+                          4K Film {photo.duration || ''}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Bottom Info Bar */}
+                    <div className="absolute inset-x-0 bottom-0 p-2.5 bg-gradient-to-t from-black via-black/80 to-transparent text-[10px] font-mono text-white opacity-0 group-hover:opacity-100 transition-opacity">
+                      <p className="truncate font-serif font-medium">{photo.name}</p>
+                      <div className="flex items-center justify-between text-white/70 text-[9px] mt-0.5">
+                        <span>{photo.exif?.cameraModel || (isVideo ? '4K Cinema' : 'High-Res Master')}</span>
+                        <span>{photo.exif?.lens || `${photo.width}×${photo.height}`}</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {filteredPhotos.map((photo) => {
+                const isVideo = photo.mediaType === 'video';
+                return (
+                  <div
+                    key={photo.id}
+                    onClick={() => setActivePhoto(photo)}
+                    className="group relative aspect-[4/5] bg-[#111] border border-[#E6DFD3] dark:border-[#2D261E] hover:border-[#C88E3E] dark:hover:border-[#D49A3D] rounded-xl overflow-hidden cursor-pointer transition-all shadow-sm"
+                  >
+                    {brokenPhotos[photo.id] ? (
+                      <div className="w-full h-full flex flex-col items-center justify-center p-4 bg-[#181614] text-center space-y-2">
+                        <HardDrive className="w-6 h-6 text-[#C88E3E]" />
+                        <span className="text-[10px] font-mono text-white/70 truncate max-w-full">{photo.name}</span>
+                      </div>
+                    ) : (
+                      <img
+                        src={photo.thumbnailUrl}
+                        alt={photo.name}
+                        className="w-full h-full object-contain transition-transform duration-500 group-hover:scale-105"
+                        referrerPolicy="no-referrer"
+                        onError={() => setBrokenPhotos((prev) => ({ ...prev, [photo.id]: true }))}
+                      />
+                    )}
+
+                    {/* Video Center Play Marker */}
+                    {isVideo && (
+                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none bg-black/20">
+                        <div className="w-9 h-9 rounded-full bg-black/60 text-white flex items-center justify-center border border-white/40 shadow-lg group-hover:scale-110 transition-transform">
+                          <Film className="w-4 h-4 text-[#C88E3E]" />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Overlay Badges */}
+                    <div className="absolute top-2 left-2 flex items-center gap-1 z-10">
+                      {photo.isFavorite && (
+                        <span className="p-1 bg-[#C88E3E] text-white shadow-sm rounded">
+                          <Star className="w-3.5 h-3.5 fill-current" />
+                        </span>
+                      )}
+                      {photo.comments.length > 0 && (
+                        <span className="px-1.5 py-0.5 bg-black/75 border border-white/20 text-[9px] font-mono text-white flex items-center gap-1 rounded">
+                          <MessageSquare className="w-3 h-3 text-[#C88E3E]" />
+                          {photo.comments.length}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="absolute top-2 right-2 z-10 flex items-center gap-1">
+                      {photo.source === 'google_drive' && (
+                        <span className="px-1.5 py-0.5 bg-black/80 border border-[#C88E3E]/40 text-[8px] font-mono text-[#C88E3E] uppercase font-semibold rounded">
+                          G-Drive
+                        </span>
+                      )}
+                      {photo.source === 'google_photos' && (
+                        <span className="px-1.5 py-0.5 bg-black/80 border border-[#C88E3E]/40 text-[8px] font-mono text-[#C88E3E] uppercase font-semibold rounded">
+                          G-Photos
+                        </span>
+                      )}
+                      {isVideo && (
+                        <span className="px-1.5 py-0.5 bg-rose-700 text-white text-[8px] font-mono uppercase font-bold rounded">
                           4K Film {photo.duration || ''}
                         </span>
                       )}
@@ -1113,8 +1244,14 @@ export const GalleryEditor: React.FC<GalleryEditorProps> = ({
 
       {/* Photo Inspector Modal */}
       {activePhoto && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fade-in">
-          <div className="bg-[#FAF7F2] dark:bg-[#151311] border border-[#E6DFD3] dark:border-[#2D261E] max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl flex flex-col md:flex-row">
+        <div
+          onClick={() => setActivePhoto(null)}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fade-in cursor-pointer"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-[#FAF7F2] dark:bg-[#151311] border border-[#E6DFD3] dark:border-[#2D261E] max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl flex flex-col md:flex-row cursor-default"
+          >
             <div className="flex-1 bg-black flex items-center justify-center p-4 min-h-[300px] relative">
               <img
                 src={activePhoto.highResUrl}
@@ -1132,9 +1269,11 @@ export const GalleryEditor: React.FC<GalleryEditorProps> = ({
                   </span>
                   <button
                     onClick={() => setActivePhoto(null)}
-                    className="text-[#70665A] dark:text-[#A39886] hover:text-[#1C1917] dark:hover:text-white text-xs font-mono"
+                    className="flex items-center gap-1.5 px-3 py-1 bg-[#1C1917] hover:bg-rose-600 text-white border border-white/20 text-xs font-mono uppercase tracking-wider transition-colors shadow-sm cursor-pointer"
+                    title="Close Inspector (Esc)"
                   >
-                    [CLOSE]
+                    <X className="w-3.5 h-3.5" />
+                    <span>Close</span>
                   </button>
                 </div>
 

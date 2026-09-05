@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef, useSyncExternalStore } from 'react';
 import {
   Lock,
   KeyRound,
@@ -17,6 +17,9 @@ import {
   verifyStudioOwnerCredentials,
   activateStudioOwnerSession,
   getStudioOwnerConfig,
+  subscribeStudioOwnerConfig,
+  getStudioOwnerConfigSnapshot,
+  getStudioOwnerConfigServerSnapshot,
 } from '@/lib/security';
 import { googleSignIn, isGoogleVerificationError, firebaseProjectId } from '@/lib/firebase';
 import { User } from 'firebase/auth';
@@ -32,8 +35,15 @@ export const StudioMasterGate: React.FC<StudioMasterGateProps> = ({
   onSwitchToClient,
   currentUser,
 }) => {
-  const ownerConfig = getStudioOwnerConfig();
-  const [emailInput, setEmailInput] = useState(ownerConfig.ownerEmail || '');
+  const ownerConfig = useSyncExternalStore(
+    subscribeStudioOwnerConfig,
+    getStudioOwnerConfigSnapshot,
+    getStudioOwnerConfigServerSnapshot
+  );
+
+  const [customEmail, setCustomEmail] = useState<string | null>(null);
+  const emailInput = customEmail !== null ? customEmail : (ownerConfig.ownerEmail || '');
+
   const [credentialInput, setCredentialInput] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberWorkstation, setRememberWorkstation] = useState(true);
@@ -41,6 +51,18 @@ export const StudioMasterGate: React.FC<StudioMasterGateProps> = ({
   const [showGoogleHelp, setShowGoogleHelp] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGoogleSigningIn, setIsGoogleSigningIn] = useState(false);
+
+  const emailInputRef = useRef<HTMLInputElement>(null);
+  const passwordInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const config = getStudioOwnerConfig();
+    if (config.ownerEmail) {
+      passwordInputRef.current?.focus();
+    } else {
+      emailInputRef.current?.focus();
+    }
+  }, []);
 
   const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -154,17 +176,18 @@ export const StudioMasterGate: React.FC<StudioMasterGateProps> = ({
               <span className="text-[9px] text-[#C88E3E] font-mono font-medium tracking-normal lowercase">required</span>
             </label>
             <input
+              ref={emailInputRef}
               type="email"
               placeholder="e.g. director@surjomedia.com"
               value={emailInput}
               onChange={(e) => {
-                setEmailInput(e.target.value);
+                setCustomEmail(e.target.value);
                 if (errorMessage) setErrorMessage(null);
               }}
               required
               className="w-full bg-[#FAF7F0] dark:bg-[#0C0B0A] border border-[#E6DFD3] dark:border-[#2D261E] px-3.5 py-2.5 text-xs text-[#1C1917] dark:text-[#F7F3EC] focus:outline-none focus:border-[#C88E3E] font-mono tracking-wider placeholder-[#70665A]/40"
               autoComplete="email"
-              autoFocus={!emailInput}
+              suppressHydrationWarning
             />
           </div>
 
@@ -179,6 +202,7 @@ export const StudioMasterGate: React.FC<StudioMasterGateProps> = ({
             </label>
             <div className="relative">
               <input
+                ref={passwordInputRef}
                 type={showPassword ? 'text' : 'password'}
                 placeholder="Enter passcode (default: 123456)"
                 value={credentialInput}
@@ -189,7 +213,7 @@ export const StudioMasterGate: React.FC<StudioMasterGateProps> = ({
                 required
                 className="w-full bg-[#FAF7F0] dark:bg-[#0C0B0A] border border-[#E6DFD3] dark:border-[#2D261E] px-3.5 py-2.5 text-xs text-[#1C1917] dark:text-[#F7F3EC] focus:outline-none focus:border-[#C88E3E] font-mono tracking-wider placeholder-[#70665A]/40"
                 autoComplete="current-password"
-                autoFocus={!!emailInput}
+                suppressHydrationWarning
               />
               <button
                 type="button"
